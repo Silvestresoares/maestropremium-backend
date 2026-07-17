@@ -3,19 +3,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const poolConfig: PoolConfig = {
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT) || 5432,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-  max: 20,              // Máximo de conexões simultâneas no pool
-  idleTimeoutMillis: 30000, // Tempo para fechar conexões ociosas
-  connectionTimeoutMillis: 2000, // Tempo limite para conseguir uma conexão antes de dar erro
-};
+const poolConfig: PoolConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 5432,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASS,
+      database: process.env.DB_NAME,
+    };
 
-// Configuração dinâmica de SSL para ambientes Cloud/Produção
-if (process.env.DB_SSL === 'true') {
+poolConfig.max = 20;
+poolConfig.idleTimeoutMillis = 30000;
+poolConfig.connectionTimeoutMillis = 2000;
+
+// Configuração dinâmica de SSL para ambientes Cloud/Produção (Neon.tech requer SSL)
+if (process.env.DB_SSL === 'true' || process.env.DATABASE_URL) {
   poolConfig.ssl = {
     rejectUnauthorized: false,
   };
