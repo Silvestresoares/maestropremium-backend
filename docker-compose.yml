@@ -1,0 +1,18 @@
+services:
+  maestro-db:
+    image: postgres:16-alpine
+    container_name: maestro-postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: silvestresoares83
+      POSTGRES_PASSWORD: Subestre1
+      POSTGRES_DB: maestro_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/1-schema.sql
+
+volumes:
+  postgres_data:
+    driver: local
