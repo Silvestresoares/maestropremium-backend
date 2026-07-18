@@ -21,7 +21,7 @@ async function migrateMultiTenancy() {
     console.log('⏳ Criando tabela organization_users...');
     await client.query(`
       CREATE TABLE IF NOT EXISTS organization_users (
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
         role VARCHAR(50) DEFAULT 'musician',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
