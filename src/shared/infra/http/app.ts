@@ -10,8 +10,8 @@ import { eventsRoutes } from '../../../modules/events/events.routes';
 import { setlistsRoutes } from '../../../modules/setlists/setlists.routes';
 import { sessionsRouter } from '../../../modules/users/sessions.routes';
 import { skillsRoutes } from '../../../modules/skills/skills.routes';
+import { pushRoutes } from '../../../modules/notifications/push.routes';
 import { isAuthenticated } from './middlewares/isAuthenticated';
-
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -37,6 +37,7 @@ app.use('/events', eventsRoutes);
 app.use('/setlists', setlistsRoutes);
 app.use('/sessions', sessionsRouter);
 app.use('/skills', skillsRoutes);
+app.use('/push', pushRoutes);
 
 app.get('/health', (request: Request, response: Response) => {
   return response.json({
