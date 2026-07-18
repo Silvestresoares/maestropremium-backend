@@ -23,6 +23,7 @@ export class SongsController {
       bpm: bpm ? Number(bpm) : 0,
       file_url,
       youtube_url: request.body.youtube_url,
+      spotify_url: request.body.spotify_url,
       chord_pro,
       time_signature,
       organization_id: currentUser?.organization_id
@@ -62,6 +63,7 @@ export class SongsController {
       tone,
       bpm: bpm !== undefined ? Number(bpm) : undefined,
       youtube_url: request.body.youtube_url,
+      spotify_url: request.body.spotify_url,
       chord_pro,
       time_signature,
       organization_id: currentUser?.organization_id

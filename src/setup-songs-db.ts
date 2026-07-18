@@ -16,6 +16,7 @@ async function setupSongsDatabase() {
         time_signature VARCHAR(10),
         file_url VARCHAR(255) NOT NULL,
         youtube_url VARCHAR(255),
+        spotify_url VARCHAR(255),
         chord_pro TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );

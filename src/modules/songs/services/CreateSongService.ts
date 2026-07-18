@@ -8,13 +8,14 @@ interface Request {
   bpm: number;
   file_url?: string;
   youtube_url?: string;
+  spotify_url?: string;
   chord_pro?: string;
   time_signature?: string;
   organization_id?: string;
 }
 
 export class CreateSongService {
-  async execute({ title, artist, tone, bpm, file_url, youtube_url, chord_pro, time_signature, organization_id }: Request) {
+  async execute({ title, artist, tone, bpm, file_url, youtube_url, spotify_url, chord_pro, time_signature, organization_id }: Request) {
     if (!title || !artist || !tone) {
       throw new AppError('Título, Artista e Tom são obrigatórios.');
     }
@@ -27,6 +28,7 @@ export class CreateSongService {
       bpm,
       file_url: file_url || '',
       youtube_url,
+      spotify_url,
       chord_pro,
       time_signature,
       organization_id: organization_id || ''
