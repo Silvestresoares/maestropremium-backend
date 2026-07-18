@@ -12,7 +12,7 @@ export interface EventRow {
 export interface ScheduleRow {
   id: string;
   event_id: string;
-  user_id: number; // 👈 Atualizado para number
+  user_id: string; // Atualizado para UUID (string)
   skill_id: string;
   status: 'pendente' | 'confirmado' | 'recusado';
   justification: string | null;
@@ -32,8 +32,7 @@ export class SchedulesRepository {
   }
 
   // Verifica se o voluntário já está escalado naquela exata função para aquele evento
-  // 🔽 Atualizado user_id para number aqui na assinatura
-  async findDuplicate(event_id: string, user_id: number, skill_id: string): Promise<ScheduleRow | null> {
+  async findDuplicate(event_id: string, user_id: string, skill_id: string): Promise<ScheduleRow | null> {
     const query = `
       SELECT id, event_id, user_id, skill_id, status, justification, created_at 
       FROM schedules 
