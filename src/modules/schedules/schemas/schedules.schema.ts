@@ -8,7 +8,7 @@ export const createEventSchema = z.object({
 
 export const createScheduleSchema = z.object({
   event_id: z.string({ required_error: 'O ID do evento é obrigatório' }).uuid('ID do evento inválido'),
-  user_id: z.number({ required_error: 'O ID do voluntário é obrigatório' }),
+  user_id: z.string({ required_error: 'O ID do voluntário é obrigatório' }).uuid('ID do usuário inválido'),
   skill_id: z.string({ required_error: 'O ID da habilidade é obrigatório' })
 });
 
