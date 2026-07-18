@@ -11,6 +11,7 @@ import { setlistsRoutes } from '../../../modules/setlists/setlists.routes';
 import { sessionsRouter } from '../../../modules/users/sessions.routes';
 import { skillsRoutes } from '../../../modules/skills/skills.routes';
 import { pushRoutes } from '../../../modules/notifications/push.routes';
+import { teamsRoutes } from '../../../modules/teams/teams.routes';
 import { isAuthenticated } from './middlewares/isAuthenticated';
 
 interface AuthenticatedRequest extends Request {
@@ -38,6 +39,7 @@ app.use('/setlists', setlistsRoutes);
 app.use('/sessions', sessionsRouter);
 app.use('/skills', skillsRoutes);
 app.use('/push', pushRoutes);
+app.use('/teams', teamsRoutes);
 
 app.get('/health', (request: Request, response: Response) => {
   return response.json({

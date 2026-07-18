@@ -21,6 +21,7 @@ eventsRoutes.delete('/:id/songs/:songId', isAdmin, eventsController.removeSong);
 
 // Rotas de equipe (usuários no evento)
 eventsRoutes.post('/:id/team', isAdmin, eventsController.addTeamMember);
+eventsRoutes.post('/:id/apply-team', isAdmin, eventsController.applyTeam);
 eventsRoutes.delete('/:id/team/:userId', isAdmin, eventsController.removeTeamMember);
 
 export { eventsRoutes };

@@ -196,4 +196,55 @@ export class EventsController {
       return res.status(500).json({ error: 'Erro ao remover membro da equipe.' });
     }
   }
+
+  async applyTeam(req: Request, res: Response) {
+    try {
+      const { id } = req.params; // Event ID
+      const { team_id } = req.body;
+      const currentUser = (req as any).user;
+
+      if (!team_id) {
+        return res.status(400).json({ error: 'O ID da equipe é obrigatório.' });
+      }
+
+      // Check if event exists
+      const eventsRepository = new EventsRepository();
+      const event = await eventsRepository.findById(id, currentUser?.organization_id);
+      if (!event) {
+        return res.status(404).json({ error: 'Evento não encontrado.' });
+      }
+
+      // Get team members (we use dynamic import to avoid circular dependencies if any, or just require it)
+      const { TeamsRepository } = require('../../teams/repositories/TeamsRepository');
+      const teamsRepository = new TeamsRepository();
+      
+      const team = await teamsRepository.findById(team_id, currentUser?.organization_id);
+      if (!team) {
+        return res.status(404).json({ error: 'Equipe fixa não encontrada.' });
+      }
+
+      const teamMembers = await teamsRepository.getMembers(team_id);
+      
+      if (teamMembers.length === 0) {
+        return res.status(400).json({ error: 'A equipe selecionada não possui membros.' });
+      }
+
+      // Insert each member into the event_team table
+      const eventTeamRepository = new EventTeamRepository();
+      
+      for (const member of teamMembers) {
+        try {
+          await eventTeamRepository.addTeamMember(id, member.user_id, member.assignment);
+        } catch (err) {
+          // Ignore duplicate constraint errors
+          console.warn(`Membro ${member.user_id} já está na equipe ou erro:`, err);
+        }
+      }
+
+      return res.status(200).json({ message: 'Equipe aplicada com sucesso.' });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Erro ao aplicar equipe fixa ao evento.' });
+    }
+  }
 }
