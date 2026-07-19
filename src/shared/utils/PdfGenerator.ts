@@ -33,64 +33,25 @@ export class PdfGenerator {
   }
 
   private static setupFonts(doc: typeof PDFDocument) {
-    // Caminho da fonte baixada dentro do projeto
-    const localFontPath = path.join(__dirname, '../fonts/Aparajita.ttf');
-
-    // Fallbacks para caso o sistema tenha outras versões instaladas localmente
-    const fontPaths = [
-      localFontPath,
-      'C:/Windows/Fonts/aparaj.ttf', 
-      'C:/Windows/Fonts/aprajita.ttf'
-    ];
-    const boldFontPaths = [
-      'C:/Windows/Fonts/aparajb.ttf', 
-      'C:/Windows/Fonts/aprajitab.ttf'
-    ];
-
-    let fontRegistered = false;
-    for (const p of fontPaths) {
-      if (fs.existsSync(p)) {
-        doc.registerFont('Aprajita', p);
-        fontRegistered = true;
-        break;
-      }
-    }
-
-    let boldRegistered = false;
-    for (const p of boldFontPaths) {
-      if (fs.existsSync(p)) {
-        doc.registerFont('Aprajita-Bold', p);
-        boldRegistered = true;
-        break;
-      }
-    }
-
-    // Se achou a normal mas não a bold, repete a normal
-    if (fontRegistered && !boldRegistered) {
-      doc.registerFont('Aprajita-Bold', 'Aprajita');
-    }
+    // Não é necessário carregar fontes externas, usaremos as fontes nativas do PDFKit
   }
 
   private static getFont(doc: typeof PDFDocument, type: 'regular' | 'bold') {
-    try {
-      if (type === 'bold') {
-        doc.font('Aprajita-Bold');
-      } else {
-        doc.font('Aprajita');
-      }
-    } catch {
-      doc.font(type === 'bold' ? 'Times-Bold' : 'Times-Roman');
+    if (type === 'bold') {
+      doc.font('Courier-Bold');
+    } else {
+      doc.font('Courier');
     }
   }
 
   private static renderSong(doc: typeof PDFDocument, song: any) {
     // Cabeçalho - Título (Tamanho 25)
-    this.getFont(doc, 'bold');
+    doc.font('Helvetica-Bold');
     doc.fontSize(25).text(song.title || 'Sem Título', { align: 'center' });
     
     // Metadados
-    this.getFont(doc, 'regular');
-    doc.fontSize(14).text(`Tom: ${song.original_key || '-'} | BPM: ${song.bpm || '-'} | Compasso: ${song.time_signature || '-'}`, { align: 'center' });
+    doc.font('Helvetica');
+    doc.fontSize(12).text(`Tom: ${song.original_key || song.tone || '-'} | BPM: ${song.bpm || '-'} | Compasso: ${song.time_signature || '-'}`, { align: 'center' });
     
     doc.moveDown(1.5);
 
@@ -99,35 +60,50 @@ export class PdfGenerator {
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
     
-    // Calcula largura da coluna deixando 30pt de espaçamento no meio (gutter)
     const gutter = 30;
     const columnWidth = (pageWidth - margins.left - margins.right - gutter) / 2;
     
     let currentColumn = 0; // 0 = esquerda, 1 = direita
     let yPos = doc.y;
-    const startY = yPos; // Ponto inicial (abaixo do cabeçalho)
-    const bottomLimit = pageHeight - margins.bottom - 40; // Limite antes de pular
+    const startY = yPos;
+    const bottomLimit = pageHeight - margins.bottom - 40;
 
-    const content = song.chordpro_content || '';
+    const content = song.chordpro_content || song.chord_pro || '';
     const lines = content.split('\n');
 
     this.getFont(doc, 'regular');
-    doc.fontSize(20);
+    doc.fontSize(12);
+
+    const isSectionHeader = (line: string) => {
+      const match = line.match(/^\[([^[\]]+)\]$/);
+      if (!match) return false;
+      const content = match[1].trim();
+      if (/^[A-G]$/i.test(content)) return false; 
+      const isChord = /^[A-G][#b]?(?:m|M|maj|dim|aug|sus|add)?\d*(?:\/[A-G][#b]?)?$/.test(content);
+      if (isChord) return false;
+      return true;
+    };
+
+    const isComment = (line: string) => {
+      return line.match(/^\{(?:c:\s*|comment:\s*)?(.*?)\}$/i) !== null;
+    };
+
+    const getCommentText = (line: string) => {
+      const match = line.match(/^\{(?:c:\s*|comment:\s*)?(.*?)\}$/i);
+      return match ? match[1].trim() : '';
+    };
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      let line = lines[i].trim();
       let xPos = margins.left + (currentColumn * (columnWidth + gutter));
 
       // Checagem de quebra de página/coluna
       if (yPos > bottomLimit) {
         if (currentColumn === 0) {
-          // Pula para segunda coluna
           currentColumn = 1;
           yPos = startY;
           xPos = margins.left + (currentColumn * (columnWidth + gutter));
         } else {
-          // Pula página e zera coluna, MAS precisamos redesenhar o cabeçalho?
-          // Geralmente a cifra continua sem cabeçalho, apenas do topo
           doc.addPage();
           currentColumn = 0;
           yPos = margins.top;
@@ -135,70 +111,87 @@ export class PdfGenerator {
         }
       }
 
-      if (line.trim() === '') {
-        yPos += 24; // Pula linha
+      if (line === '') {
+        yPos += 16;
         continue;
       }
 
-      const segments = this.parseChordProLine(line);
+      const altSectionRegex = /^([\w\sçãõáéíóú]+):$/i;
+
+      // Handle Section Headers
+      if (isSectionHeader(line) || altSectionRegex.test(line)) {
+        let title = line;
+        if (isSectionHeader(line)) {
+          title = line.match(/^\[([^[\]]+)\]$/)![1].trim();
+        } else {
+          title = line.match(altSectionRegex)![1].trim();
+        }
+
+        yPos += 8; // Extra spacing before section
+        this.getFont(doc, 'bold');
+        doc.fontSize(14).text(title, xPos, yPos, { width: columnWidth, lineBreak: true });
+        yPos += doc.heightOfString(title, { width: columnWidth }) + 4;
+        continue;
+      }
+
+      // Handle Comments
+      if (isComment(line)) {
+        this.getFont(doc, 'bold');
+        doc.fontSize(12).text(`{${getCommentText(line)}}`, xPos, yPos, { width: columnWidth, lineBreak: true });
+        yPos += doc.heightOfString(`{${getCommentText(line)}}`, { width: columnWidth });
+        continue;
+      }
+
+      // Parse chords and lyrics
+      const chordRegex = /\[(.*?)\]/g;
+      let chordsLine = '';
+      let lyricsLine = '';
+      let lastIndex = 0;
       
-      // Renderiza a linha de ACORDES
-      let currentX = xPos;
-      this.getFont(doc, 'bold');
+      let tempLine = line;
+      let currentMatch = chordRegex.exec(tempLine);
       
-      segments.forEach((seg: any) => {
-        if (seg.chord) {
-          doc.text(seg.chord, currentX, yPos, { lineBreak: false });
+      while (currentMatch !== null) {
+        const chordStr = currentMatch[1];
+        const matchPos = currentMatch.index;
+        
+        const textPart = tempLine.substring(lastIndex, matchPos);
+        lyricsLine += textPart;
+        
+        // Pad chordsLine to match lyricsLine length
+        while (chordsLine.length < lyricsLine.length) {
+          chordsLine += ' ';
         }
         
-        // Calcula a largura que este segmento vai ocupar (o que for maior: acorde ou pedaço da letra)
-        const chordWidth = seg.chord ? doc.widthOfString(seg.chord + ' ') : 0;
+        chordsLine += chordStr;
         
-        this.getFont(doc, 'regular');
-        const textWidth = doc.widthOfString(seg.text);
-        seg.advance = Math.max(chordWidth, textWidth);
-        
-        currentX += seg.advance;
-        this.getFont(doc, 'bold'); // Volta pra bold para o próximo acorde
-      });
+        lastIndex = matchPos + currentMatch[0].length;
+        currentMatch = chordRegex.exec(tempLine);
+      }
+      
+      lyricsLine += tempLine.substring(lastIndex);
 
-      yPos += 18; // Desce para desenhar a letra
-
-      // Renderiza a linha de LETRA
-      currentX = xPos;
       this.getFont(doc, 'regular');
-      segments.forEach((seg: any) => {
-        if (seg.text) {
-          doc.text(seg.text, currentX, yPos, { lineBreak: false });
-        }
-        currentX += seg.advance;
-      });
+      doc.fontSize(12);
 
-      yPos += 24; // Desce para a próxima linha (letra + acorde)
-    }
-  }
+      // Render Chords
+      if (chordsLine.trim() !== '') {
+        this.getFont(doc, 'bold');
+        // Replace spaces with non-breaking spaces if needed, but pdfkit handles spaces in Courier fine.
+        doc.text(chordsLine, xPos, yPos, { lineBreak: false });
+        yPos += 14;
+      }
 
-  private static parseChordProLine(line: string) {
-    const segments = [];
-    const regex = /\[(.*?)\]([^\[]*)/g;
-    
-    const firstChordIndex = line.indexOf('[');
-    if (firstChordIndex > 0 || firstChordIndex === -1) {
-      segments.push({
-        chord: '',
-        text: firstChordIndex === -1 ? line : line.substring(0, firstChordIndex)
-      });
-    }
+      // Render Lyrics
+      if (lyricsLine.trim() !== '') {
+        this.getFont(doc, 'regular');
+        doc.text(lyricsLine, xPos, yPos, { lineBreak: false });
+        yPos += 14;
+      }
 
-    if (firstChordIndex !== -1) {
-      let match;
-      while ((match = regex.exec(line)) !== null) {
-        segments.push({
-          chord: match[1],
-          text: match[2]
-        });
+      if (chordsLine.trim() === '' && lyricsLine.trim() === '') {
+        yPos += 14;
       }
     }
-    return segments;
   }
 }

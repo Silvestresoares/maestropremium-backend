@@ -8,6 +8,7 @@ const eventsController = new EventsController();
 
 // Rotas (Autenticadas)
 eventsRoutes.get('/', isAuthenticated, eventsController.list);
+eventsRoutes.get('/:id', isAuthenticated, eventsController.show);
 
 // Rotas protegidas (só administradores podem alterar)
 eventsRoutes.post('/', isAdmin, eventsController.create);

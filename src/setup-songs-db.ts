@@ -18,6 +18,7 @@ async function setupSongsDatabase() {
         youtube_url VARCHAR(255),
         spotify_url VARCHAR(255),
         chord_pro TEXT,
+        audio_files JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);

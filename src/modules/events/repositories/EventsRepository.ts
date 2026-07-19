@@ -110,11 +110,11 @@ export class EventsRepository {
           '[]'::json
         ) AS team
       FROM events e
-      WHERE e.id = $1 AND e.organization_id = $2;
+      WHERE e.id = $1;
     `;
     
     
-    const { rows } = await pool.query(query, [id, organization_id]);
+    const { rows } = await pool.query(query, [id]);
     
     // Retorna o evento encontrado ou undefined se não existir
     return rows[0];

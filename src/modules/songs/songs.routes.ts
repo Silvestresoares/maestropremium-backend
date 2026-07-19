@@ -5,11 +5,13 @@ import { SongsController } from './controllers/SongsController';
 import { SongAnnotationsController } from './controllers/SongAnnotationsController';
 import { isAuthenticated } from '../../shared/infra/http/middlewares/isAuthenticated';
 import { isAdmin } from '../../shared/infra/http/middlewares/isAdmin';
+import { SongAudioController } from './controllers/SongAudioController';
 
 const songsRoutes = Router();
 const upload = multer(uploadConfig);
 const songsController = new SongsController();
 const annotationsController = new SongAnnotationsController();
+const audioController = new SongAudioController();
 
 // Todos os usuários autenticados podem ver a lista de músicas
 songsRoutes.get('/', isAuthenticated, songsController.index.bind(songsController));
@@ -29,5 +31,9 @@ songsRoutes.delete('/:id', isAdmin, songsController.delete.bind(songsController)
 // Notas pessoais nas músicas
 songsRoutes.get('/:id/annotations', isAuthenticated, annotationsController.show.bind(annotationsController));
 songsRoutes.post('/:id/annotations', isAuthenticated, annotationsController.save.bind(annotationsController));
+
+// Arquivos de Áudio (Kits de Vozes)
+songsRoutes.post('/:id/audio', isAdmin, upload.single('file'), audioController.upload.bind(audioController));
+songsRoutes.delete('/:id/audio/:trackId', isAdmin, audioController.delete.bind(audioController));
 
 export { songsRoutes };

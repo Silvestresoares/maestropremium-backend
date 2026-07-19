@@ -36,11 +36,12 @@ export class SetlistsRepository {
     const query = `
       SELECT 
         es.position, 
+        es.tone AS event_tone,
+        es.capo AS event_capo,
         s.*, 
-        sc.structure->>'raw' AS chordpro_content 
+        s.chord_pro AS chordpro_content 
       FROM event_songs es 
       JOIN songs s ON es.song_id = s.id 
-      LEFT JOIN song_charts sc ON s.id = sc.song_id 
       WHERE es.event_id = $1 
       ORDER BY es.position ASC;
     `;
