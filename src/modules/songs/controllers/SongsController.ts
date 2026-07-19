@@ -8,7 +8,7 @@ import { UpdateSongService } from '../services/UpdateSongService';
 export class SongsController {
   async create(request: Request, response: Response): Promise<Response> {
     const { title, artist, tone, bpm, chord_pro, time_signature } = request.body;
-    const file_url = request.file?.filename;
+    const file_url = request.file?.path;
 
     if (!file_url && !chord_pro) {
       return response.status(400).json({ error: 'Você deve anexar um arquivo ou digitar a cifra.' });

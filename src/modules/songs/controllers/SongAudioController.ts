@@ -7,7 +7,7 @@ export class SongAudioController {
   async upload(request: Request, response: Response): Promise<Response> {
     const { id } = request.params;
     const { name } = request.body;
-    const file_url = request.file?.filename;
+    const file_url = request.file?.path;
 
     if (!file_url || !name) {
       throw new AppError('Nome do kit e arquivo de áudio são obrigatórios.');
