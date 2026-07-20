@@ -34,6 +34,36 @@ export class SongAudioController {
     return response.status(201).json(newFile);
   }
 
+  async update(request: Request, response: Response): Promise<Response> {
+    const { id, trackId } = request.params;
+    const { name } = request.body;
+
+    if (!name) {
+      throw new AppError('Nome do kit é obrigatório.');
+    }
+
+    const currentUser = (request as any).user;
+    const songsRepository = new SongsRepository();
+    
+    const song = await songsRepository.findById(id, currentUser?.organization_id);
+    if (!song) {
+      throw new AppError('Música não encontrada.', 404);
+    }
+
+    const currentFiles = song.audio_files || [];
+    const trackIndex = currentFiles.findIndex(file => file.id === trackId);
+
+    if (trackIndex === -1) {
+      throw new AppError('Áudio não encontrado.', 404);
+    }
+
+    currentFiles[trackIndex].name = name;
+
+    await songsRepository.updateAudioFiles(id, currentUser?.organization_id, currentFiles);
+
+    return response.json(currentFiles[trackIndex]);
+  }
+
   async delete(request: Request, response: Response): Promise<Response> {
     const { id, trackId } = request.params;
     const currentUser = (request as any).user;

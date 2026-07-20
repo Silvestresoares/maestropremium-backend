@@ -34,6 +34,7 @@ songsRoutes.post('/:id/annotations', isAuthenticated, annotationsController.save
 
 // Arquivos de Áudio (Kits de Vozes)
 songsRoutes.post('/:id/audio', isAdmin, upload.single('file'), audioController.upload.bind(audioController));
+songsRoutes.put('/:id/audio/:trackId', isAdmin, audioController.update.bind(audioController));
 songsRoutes.delete('/:id/audio/:trackId', isAdmin, audioController.delete.bind(audioController));
 
 export { songsRoutes };
