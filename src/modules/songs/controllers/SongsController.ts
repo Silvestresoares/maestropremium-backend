@@ -4,6 +4,7 @@ import { ListSongsService } from '../services/ListSongsService';
 import { DeleteSongService } from '../services/DeleteSongService';
 import { ShowSongService } from '../services/ShowSongService';
 import { UpdateSongService } from '../services/UpdateSongService';
+import { NotificationService } from '../../notifications/services/NotificationService';
 
 export class SongsController {
   async create(request: Request, response: Response): Promise<Response> {
@@ -68,6 +69,15 @@ export class SongsController {
       time_signature,
       organization_id: currentUser?.organization_id
     });
+
+    if (currentUser?.organization_id) {
+      const notificationService = new NotificationService();
+      notificationService.sendToOrganization(currentUser.organization_id, {
+        title: 'Música Atualizada',
+        body: `O repertório "${song.title}" sofreu uma alteração (tom, cifra ou andamento).`,
+        url: `/songs/${song.id}`
+      }).catch(err => console.error('Erro ao notificar:', err));
+    }
 
     return response.json(song);
   }

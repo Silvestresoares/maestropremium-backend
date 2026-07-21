@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { EventsRepository } from '../repositories/EventsRepository';
 import { EventSongsRepository } from '../repositories/EventSongsRepository';
 import { EventTeamRepository } from '../repositories/EventTeamRepository';
+import { NotificationService } from '../../notifications/services/NotificationService';
 
 export class EventsController {
   async create(req: Request, res: Response) {
@@ -15,6 +16,16 @@ export class EventsController {
       const currentUser = (req as any).user;
       const eventsRepository = new EventsRepository();
       const event = await eventsRepository.create({ title, description, date_time, organization_id: currentUser?.organization_id });
+
+      // Dispara notificação push
+      if (currentUser?.organization_id) {
+        const notificationService = new NotificationService();
+        notificationService.sendToOrganization(currentUser.organization_id, {
+          title: 'Novo Evento Agendado!',
+          body: `O evento "${title}" foi criado e está na agenda.`,
+          url: `/events/${event.id}`
+        }).catch(err => console.error('Erro ao notificar:', err));
+      }
 
       return res.status(201).json(event);
     } catch (error) {
@@ -124,6 +135,20 @@ export class EventsController {
       const eventSongsRepository = new EventSongsRepository();
       const eventSong = await eventSongsRepository.addSong(id, song_id);
       
+      const currentUser = (req as any).user;
+      if (currentUser?.organization_id) {
+        const eventsRepository = new EventsRepository();
+        const event = await eventsRepository.findById(id, currentUser.organization_id);
+        if (event) {
+          const notificationService = new NotificationService();
+          notificationService.sendToOrganization(currentUser.organization_id, {
+            title: 'Música Adicionada',
+            body: `Uma nova música foi adicionada ao evento "${event.title}".`,
+            url: `/events/${id}`
+          }).catch(err => console.error('Erro ao notificar:', err));
+        }
+      }
+
       return res.status(201).json(eventSong);
     } catch (error) {
       console.error(error);
@@ -176,6 +201,20 @@ export class EventsController {
       const eventTeamRepository = new EventTeamRepository();
       const teamMember = await eventTeamRepository.addTeamMember(id, user_id, assignment);
       
+      const currentUser = (req as any).user;
+      if (currentUser?.organization_id) {
+        const eventsRepository = new EventsRepository();
+        const event = await eventsRepository.findById(id, currentUser.organization_id);
+        if (event) {
+          const notificationService = new NotificationService();
+          notificationService.sendToOrganization(currentUser.organization_id, {
+            title: 'Nova Escalação',
+            body: `Alguém foi escalado para o evento "${event.title}".`,
+            url: `/events/${id}`
+          }).catch(err => console.error('Erro ao notificar:', err));
+        }
+      }
+
       return res.status(201).json(teamMember);
     } catch (error) {
       console.error(error);
