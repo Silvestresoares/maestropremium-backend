@@ -86,6 +86,15 @@ export class EventsController {
       // 2. Se existe, deleta
       await eventsRepository.delete(id, currentUser?.organization_id);
 
+      if (currentUser?.organization_id) {
+        const notificationService = new NotificationService();
+        notificationService.sendToOrganization(currentUser.organization_id, {
+          title: 'Evento Cancelado',
+          body: `O evento "${event.title}" foi cancelado/excluído.`,
+          url: '/dashboard'
+        }).catch(err => console.error('Erro ao notificar:', err));
+      }
+
       // Status 204 é o padrão ideal para exclusões bem-sucedidas
       return res.status(204).send();
     } catch (error) {
@@ -115,6 +124,24 @@ export class EventsController {
       // 3. Executa a atualização
       const updatedEvent = await eventsRepository.update(id, { title, description, date_time, organization_id: currentUser?.organization_id });
 
+      if (currentUser?.organization_id) {
+        const notificationService = new NotificationService();
+        
+        let updateType = 'Detalhes Alterados';
+        const newDate = new Date(date_time).getTime();
+        const oldDate = new Date(eventExists.date_time).getTime();
+        
+        if (newDate !== oldDate) {
+          updateType = 'Horário Alterado';
+        }
+
+        notificationService.sendToOrganization(currentUser.organization_id, {
+          title: `Evento Atualizado: ${updateType}`,
+          body: `O evento "${updatedEvent.title}" sofreu alterações.`,
+          url: `/events/${updatedEvent.id}`
+        }).catch(err => console.error('Erro ao notificar:', err));
+      }
+
       // Retorna o evento atualizado com status 200 OK
       return res.status(200).json(updatedEvent);
     } catch (error) {
@@ -142,7 +169,7 @@ export class EventsController {
         if (event) {
           const notificationService = new NotificationService();
           notificationService.sendToOrganization(currentUser.organization_id, {
-            title: 'Música Adicionada',
+            title: 'Mudança no Repertório',
             body: `Uma nova música foi adicionada ao evento "${event.title}".`,
             url: `/events/${id}`
           }).catch(err => console.error('Erro ao notificar:', err));
@@ -163,6 +190,20 @@ export class EventsController {
       const eventSongsRepository = new EventSongsRepository();
       await eventSongsRepository.removeSong(id, songId);
       
+      const currentUser = (req as any).user;
+      if (currentUser?.organization_id) {
+        const eventsRepository = new EventsRepository();
+        const event = await eventsRepository.findById(id, currentUser.organization_id);
+        if (event) {
+          const notificationService = new NotificationService();
+          notificationService.sendToOrganization(currentUser.organization_id, {
+            title: 'Mudança no Repertório',
+            body: `Uma música foi removida do evento "${event.title}".`,
+            url: `/events/${id}`
+          }).catch(err => console.error('Erro ao notificar:', err));
+        }
+      }
+
       return res.status(204).send();
     } catch (error) {
       console.error(error);
