@@ -44,12 +44,7 @@ export class EventsController {
 
       const currentUser = (req as any).user;
       const eventsRepository = new EventsRepository();
-      
-      console.log('>>> EventsController.show CALLED com ID:', id, 'Organization:', currentUser?.organization_id);
-
       const event = await eventsRepository.findById(id, currentUser?.organization_id);
-
-      console.log('>>> Evento encontrado:', event ? event.id : 'null');
 
       // Se o banco não encontrar nenhum evento com esse ID
       if (!event) {
