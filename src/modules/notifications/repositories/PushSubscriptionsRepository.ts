@@ -32,6 +32,12 @@ export class PushSubscriptionsRepository {
     return result.rows;
   }
 
+  async findByUser(user_id: string): Promise<PushSubscriptionRow[]> {
+    const query = 'SELECT * FROM push_subscriptions WHERE user_id = $1;';
+    const result = await pool.query(query, [user_id]);
+    return result.rows;
+  }
+
   async deleteByEndpoint(endpoint: string): Promise<void> {
     const query = 'DELETE FROM push_subscriptions WHERE endpoint = $1;';
     await pool.query(query, [endpoint]);

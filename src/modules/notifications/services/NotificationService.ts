@@ -44,4 +44,46 @@ export class NotificationService {
       console.error('Erro no NotificationService:', error);
     }
   }
+
+  /**
+   * Envia uma notificação apenas para um usuário específico.
+   */
+  async sendToUser(user_id: string, payload: { title: string; body: string; url?: string }) {
+    if (!user_id) return;
+
+    try {
+      const repository = new PushSubscriptionsRepository();
+      const subscriptions = await repository.findByUser(user_id);
+
+      if (subscriptions.length === 0) {
+        return;
+      }
+
+      const stringifiedPayload = JSON.stringify(payload);
+
+      const sendPromises = subscriptions.map(async (sub) => {
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth
+          }
+        };
+
+        try {
+          await webpush.sendNotification(pushSubscription, stringifiedPayload);
+        } catch (error: any) {
+          if (error.statusCode === 410 || error.statusCode === 404) {
+            await repository.deleteByEndpoint(sub.endpoint);
+          } else {
+            console.error('Erro ao enviar notificação push:', error);
+          }
+        }
+      });
+
+      await Promise.allSettled(sendPromises);
+    } catch (error) {
+      console.error('Erro no NotificationService:', error);
+    }
+  }
 }

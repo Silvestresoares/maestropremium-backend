@@ -248,9 +248,9 @@ export class EventsController {
         const event = await eventsRepository.findById(id, currentUser.organization_id);
         if (event) {
           const notificationService = new NotificationService();
-          notificationService.sendToOrganization(currentUser.organization_id, {
+          notificationService.sendToUser(user_id, {
             title: 'Nova Escalação',
-            body: `Alguém foi escalado para o evento "${event.title}".`,
+            body: `Você foi escalado para o evento "${event.title}".`,
             url: `/events/${id}`
           }).catch(err => console.error('Erro ao notificar:', err));
         }
