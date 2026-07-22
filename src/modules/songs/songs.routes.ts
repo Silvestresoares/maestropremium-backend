@@ -19,6 +19,9 @@ songsRoutes.get('/', isAuthenticated, songsController.index.bind(songsController
 // Todos podem ver uma música específica
 songsRoutes.get('/:id', isAuthenticated, songsController.show.bind(songsController));
 
+// Gerar PDF da música
+songsRoutes.get('/:id/pdf', isAuthenticated, songsController.generatePdf.bind(songsController));
+
 // Apenas administradores podem adicionar músicas (upload de PDF)
 songsRoutes.post('/', isAdmin, upload.single('file'), songsController.create.bind(songsController));
 

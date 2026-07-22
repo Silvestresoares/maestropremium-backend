@@ -91,4 +91,28 @@ export class SongsController {
 
     return response.status(204).send();
   }
+
+  async generatePdf(request: Request, response: Response): Promise<void> {
+    const { id } = request.params;
+    const { frontendUrl } = request.query;
+
+    if (!frontendUrl || typeof frontendUrl !== 'string') {
+      response.status(400).json({ error: 'frontendUrl is required' });
+      return;
+    }
+
+    try {
+      // Import here to avoid loading puppeteer if the endpoint is not used
+      const { PuppeteerGenerator } = require('../../../shared/utils/PuppeteerGenerator');
+      
+      const pdfBuffer = await PuppeteerGenerator.generatePdf(frontendUrl);
+      
+      response.setHeader('Content-Type', 'application/pdf');
+      response.setHeader('Content-Disposition', `attachment; filename="cifra-${id}.pdf"`);
+      response.send(pdfBuffer);
+    } catch (err) {
+      console.error('Error generating PDF via Puppeteer:', err);
+      response.status(500).json({ error: 'Internal server error while generating PDF' });
+    }
+  }
 }
