@@ -1,13 +1,19 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 export class PuppeteerGenerator {
   static async generatePdf(url: string): Promise<Buffer> {
     console.log(`Starting Puppeteer for URL: ${url}`);
     
-    // Launch a headless browser
+    // Ensure Sparticuz Chromium sets up correctly
+    chromium.setGraphicsMode = false;
+
+    // Launch a headless browser optimized for cloud/serverless environments (like Render)
     const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      args: [...chromium.args, '--font-render-hinting=none'],
+      defaultViewport: chromium.defaultViewport,
     });
 
     try {
