@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "tsc",
-    "postinstall": "npm run build",
+    "postinstall": "npx puppeteer browsers install chrome && npm run build",
     "start": "node dist/server.js",
     "setup:db": "tsx src/setup-users-db.ts && tsx src/setup-songs-db.ts && tsx src/setup-db.ts && tsx src/setup-annotations-db.ts && tsx src/setup-skills.ts && tsx src/setup-schedules-db.ts && tsx src/migrate-event-songs-capo.ts && tsx src/migrate-time-signature.ts"
   },
