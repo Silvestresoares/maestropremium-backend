@@ -11,9 +11,8 @@ export class PuppeteerGenerator {
     // Launch a headless browser optimized for cloud/serverless environments (like Render)
     const browser = await puppeteer.launch({
       executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
+      headless: true,
       args: [...chromium.args, '--font-render-hinting=none'],
-      defaultViewport: chromium.defaultViewport,
     });
 
     try {
