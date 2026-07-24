@@ -44,6 +44,12 @@ io.on('connection', (socket) => {
     io.to(`event_${eventId}`).emit('new_leader', requesterId);
   });
 
+  // Encerrar liderança
+  socket.on('end_leadership', ({ eventId }) => {
+    // Notifica a sala inteira que a liderança foi encerrada
+    socket.to(`event_${eventId}`).emit('leadership_ended');
+  });
+
   // Eventos de sincronização
   socket.on('sync_change_song', ({ eventId, index }) => {
     socket.to(`event_${eventId}`).emit('sync_song_changed', index);
