@@ -6,12 +6,14 @@ import { SongAnnotationsController } from './controllers/SongAnnotationsControll
 import { isAuthenticated } from '../../shared/infra/http/middlewares/isAuthenticated';
 import { isAdmin } from '../../shared/infra/http/middlewares/isAdmin';
 import { SongAudioController } from './controllers/SongAudioController';
+import { SongSheetMusicController } from './controllers/SongSheetMusicController';
 
 const songsRoutes = Router();
 const upload = multer(uploadConfig);
 const songsController = new SongsController();
 const annotationsController = new SongAnnotationsController();
 const audioController = new SongAudioController();
+const sheetMusicController = new SongSheetMusicController();
 
 // Todos os usuários autenticados podem ver a lista de músicas
 songsRoutes.get('/', isAuthenticated, songsController.index.bind(songsController));
@@ -39,5 +41,10 @@ songsRoutes.post('/:id/annotations', isAuthenticated, annotationsController.save
 songsRoutes.post('/:id/audio', isAdmin, upload.single('file'), audioController.upload.bind(audioController));
 songsRoutes.put('/:id/audio/:trackId', isAdmin, audioController.update.bind(audioController));
 songsRoutes.delete('/:id/audio/:trackId', isAdmin, audioController.delete.bind(audioController));
+
+// Arquivos de Partitura (Guitar Pro / XML)
+songsRoutes.post('/:id/sheet-music', isAdmin, upload.single('file'), sheetMusicController.upload.bind(sheetMusicController));
+songsRoutes.put('/:id/sheet-music/:trackId', isAdmin, sheetMusicController.update.bind(sheetMusicController));
+songsRoutes.delete('/:id/sheet-music/:trackId', isAdmin, sheetMusicController.delete.bind(sheetMusicController));
 
 export { songsRoutes };

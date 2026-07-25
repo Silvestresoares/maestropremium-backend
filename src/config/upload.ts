@@ -12,10 +12,12 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     // Para aceitar arquivos de áudio e pdf, definimos o resource_type como 'auto'
+    const extension = file.originalname.split('.').pop();
+    const nameWithoutExt = file.originalname.replace(/\s/g, '_').split('.')[0];
     return {
       folder: 'maestro_cifras_uploads',
       resource_type: 'auto',
-      public_id: `${Date.now()}-${file.originalname.replace(/\\s/g, '_').split('.')[0]}`,
+      public_id: `${Date.now()}-${nameWithoutExt}.${extension}`,
     };
   },
 });

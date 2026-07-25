@@ -19,6 +19,7 @@ async function setupSongsDatabase() {
         spotify_url VARCHAR(255),
         chord_pro TEXT,
         audio_files JSONB DEFAULT '[]'::jsonb,
+        sheet_music_files JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);

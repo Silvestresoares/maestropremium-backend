@@ -1,19 +1,28 @@
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 import chromium from '@sparticuz/chromium';
 
 export class PuppeteerGenerator {
   static async generatePdf(url: string): Promise<Buffer> {
     console.log(`Starting Puppeteer for URL: ${url}`);
     
-    // Ensure Sparticuz Chromium sets up correctly
-    chromium.setGraphicsMode = false;
-
-    // Launch a headless browser optimized for cloud/serverless environments (like Render)
-    const browser = await puppeteer.launch({
-      executablePath: await chromium.executablePath(),
-      headless: true,
-      args: [...chromium.args, '--font-render-hinting=none'],
-    });
+    let browser;
+    
+    if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+      // Configuração para produção (Render, AWS, etc) usando puppeteer-core + sparticuz
+      chromium.setGraphicsMode = false;
+      const puppeteerCore = require('puppeteer-core');
+      browser = await puppeteerCore.launch({
+        executablePath: await chromium.executablePath(),
+        headless: true,
+        args: [...chromium.args, '--font-render-hinting=none'],
+      });
+    } else {
+      // Configuração para desenvolvimento local (Windows, Mac, Linux) usando pacote puppeteer completo
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    }
 
     try {
       const page = await browser.newPage();
@@ -24,6 +33,11 @@ export class PuppeteerGenerator {
       // Wait for the specific element that indicates loading is finished.
       // PrintTemplate.tsx removes the #print-loading div when finished loading.
       await page.waitForSelector('#pdf-chart-container', { timeout: 10000 });
+      
+      if (url.includes('tab=partitura')) {
+        // A partitura (AlphaTab/OSMD) requer um tempo para renderizar o Canvas/SVG.
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
       
       // We inject CSS directly via Puppeteer to handle the specific layout requirements
       // similar to what we did in the iframe approach, but now in the backend.
@@ -47,6 +61,9 @@ export class PuppeteerGenerator {
           * {
             color-adjust: exact !important;
             -webkit-print-color-adjust: exact !important;
+          }
+          .no-print {
+            display: none !important;
           }
           
           /* Hide unwanted UI controls */
