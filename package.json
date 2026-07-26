@@ -15,7 +15,10 @@
   "license": "ISC",
   "dependencies": {
     "@sparticuz/chromium": "^149.0.0",
+    "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
+    "cheerio": "^1.2.0",
+    "cifraclub-wrapper": "^1.0.3",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^16.4.5",

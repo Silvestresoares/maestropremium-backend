@@ -7,6 +7,7 @@ import { isAuthenticated } from '../../shared/infra/http/middlewares/isAuthentic
 import { isAdmin } from '../../shared/infra/http/middlewares/isAdmin';
 import { SongAudioController } from './controllers/SongAudioController';
 import { SongSheetMusicController } from './controllers/SongSheetMusicController';
+import { CifraClubScraperController } from './controllers/CifraClubScraperController';
 
 const songsRoutes = Router();
 const upload = multer(uploadConfig);
@@ -14,6 +15,11 @@ const songsController = new SongsController();
 const annotationsController = new SongAnnotationsController();
 const audioController = new SongAudioController();
 const sheetMusicController = new SongSheetMusicController();
+const cifraClubScraperController = new CifraClubScraperController();
+
+// Buscador e Scraper do Cifra Club
+songsRoutes.get('/cifraclub/search', isAdmin, cifraClubScraperController.search.bind(cifraClubScraperController));
+songsRoutes.get('/cifraclub/scrape', isAdmin, cifraClubScraperController.scrape.bind(cifraClubScraperController));
 
 // Todos os usuários autenticados podem ver a lista de músicas
 songsRoutes.get('/', isAuthenticated, songsController.index.bind(songsController));
