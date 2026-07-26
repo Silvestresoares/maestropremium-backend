@@ -3,6 +3,7 @@ import { SongAnnotationsRepository, SongAnnotationRow } from '../repositories/So
 interface Request {
   userId: string;
   songId: string;
+  eventId: string;
   content: string;
 }
 
@@ -13,8 +14,8 @@ export class SaveSongAnnotationService {
     this.repository = new SongAnnotationsRepository();
   }
 
-  async execute({ userId, songId, content }: Request): Promise<SongAnnotationRow> {
+  async execute({ userId, songId, eventId, content }: Request): Promise<SongAnnotationRow> {
     if (!content) content = '';
-    return this.repository.upsert(userId, songId, content);
+    return this.repository.upsert(userId, songId, eventId, content);
   }
 }

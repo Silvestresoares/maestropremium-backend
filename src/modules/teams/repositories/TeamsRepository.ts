@@ -1,13 +1,13 @@
 import { pool } from '../../../config/database';
 
-export interface TeamRow {
+interface TeamRow {
   id: string;
   name: string;
   organization_id: string;
   created_at: Date;
 }
 
-export interface TeamMemberRow {
+interface TeamMemberRow {
   team_id: string;
   user_id: string;
   assignment: string;

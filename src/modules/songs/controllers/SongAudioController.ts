@@ -6,7 +6,7 @@ import crypto from 'crypto';
 export class SongAudioController {
   async upload(request: Request, response: Response): Promise<Response> {
     const { id } = request.params;
-    const { name } = request.body;
+    const { name, type = 'stem' } = request.body;
     const file_url = request.file?.path;
 
     if (!file_url || !name) {
@@ -25,7 +25,8 @@ export class SongAudioController {
     const newFile = {
       id: crypto.randomBytes(16).toString('hex'),
       name,
-      url: file_url
+      url: file_url,
+      type
     };
 
     currentFiles.push(newFile);
@@ -36,7 +37,7 @@ export class SongAudioController {
 
   async update(request: Request, response: Response): Promise<Response> {
     const { id, trackId } = request.params;
-    const { name } = request.body;
+    const { name, type } = request.body;
 
     if (!name) {
       throw new AppError('Nome do kit é obrigatório.');
@@ -58,6 +59,9 @@ export class SongAudioController {
     }
 
     currentFiles[trackIndex].name = name;
+    if (type) {
+      currentFiles[trackIndex].type = type;
+    }
 
     await songsRepository.updateAudioFiles(id, currentUser?.organization_id, currentFiles);
 

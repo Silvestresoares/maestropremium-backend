@@ -7,7 +7,7 @@ export class GetSongAnnotationService {
     this.repository = new SongAnnotationsRepository();
   }
 
-  async execute(userId: string, songId: string): Promise<SongAnnotationRow | null> {
-    return this.repository.findByUserAndSong(userId, songId);
+  async execute(userId: string, songId: string, eventId: string): Promise<SongAnnotationRow | null> {
+    return this.repository.findByUserAndSong(userId, songId, eventId);
   }
 }

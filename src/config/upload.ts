@@ -17,7 +17,7 @@ const storage = new CloudinaryStorage({
     return {
       folder: 'maestro_cifras_uploads',
       resource_type: 'auto',
-      public_id: `${Date.now()}-${nameWithoutExt}.${extension}`,
+      public_id: `${Date.now()}-${nameWithoutExt}`,
     };
   },
 });
