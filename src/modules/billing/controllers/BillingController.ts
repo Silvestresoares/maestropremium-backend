@@ -40,7 +40,7 @@ export class BillingController {
 
   async subscribe(req: Request, res: Response) {
     const { organization_id, id: userId } = req.user; 
-    const { planId, billingType, cpfCnpj } = req.body;
+    const { planId, billingType, cpfCnpj, creditCard, creditCardHolderInfo } = req.body;
 
     if (!PLANS[planId as keyof typeof PLANS]) {
       throw new AppError('Plano inválido', 400);
@@ -69,15 +69,26 @@ export class BillingController {
       // Calculate next due date (today)
       const nextDueDate = new Date().toISOString().split('T')[0];
 
-      // Recurring subscription
-      const sub = await asaas.createSubscription({
+      const subPayload: any = {
         customer: customerId,
         billingType: billingType || 'PIX',
         value: plan.value,
         nextDueDate,
         cycle: plan.cycle,
         description: `Assinatura Maestro Premium - Plano ${plan.name}`
-      });
+      };
+
+      if (billingType === 'CREDIT_CARD' && creditCard && creditCardHolderInfo) {
+        subPayload.creditCard = creditCard;
+        subPayload.creditCardHolderInfo = {
+          name: name,
+          email: email,
+          cpfCnpj: cpfCnpj,
+          ...creditCardHolderInfo
+        };
+      }
+
+      const sub = await asaas.createSubscription(subPayload);
       
       const subscriptionId = sub.id;
       await client.query(
@@ -86,6 +97,17 @@ export class BillingController {
       );
 
       await client.query('COMMIT');
+      
+      if (billingType === 'BOLETO') {
+        const payments = await asaas.getPaymentsBySubscription(subscriptionId);
+        const firstPayment = payments?.data?.[0];
+        return res.json({
+          id: subscriptionId,
+          bankSlipUrl: firstPayment?.bankSlipUrl,
+          identificationField: firstPayment?.identificationField
+        });
+      }
+
       return res.json(sub);
 
     } catch (error) {

@@ -14,6 +14,23 @@ interface AsaasSubscriptionData {
   nextDueDate: string;
   cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
   description: string;
+  creditCard?: {
+    holderName: string;
+    number: string;
+    expiryMonth: string;
+    expiryYear: string;
+    ccv: string;
+  };
+  creditCardHolderInfo?: {
+    name: string;
+    email: string;
+    cpfCnpj: string;
+    postalCode: string;
+    addressNumber: string;
+    addressComplement?: string;
+    phone?: string;
+    mobilePhone?: string;
+  };
 }
 
 interface AsaasPaymentData {
