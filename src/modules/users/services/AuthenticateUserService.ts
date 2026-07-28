@@ -34,7 +34,8 @@ export class AuthenticateUserService {
     
     const token = sign({ 
       role: activeRole, 
-      organization_id: user.organization_id 
+      organization_id: user.organization_id,
+      is_super_admin: user.is_super_admin 
     }, secret, {
       subject: user.id.toString(), // ID do usuário como "sub"
       expiresIn: '1d', // Token expira em 1 dia
@@ -46,7 +47,8 @@ export class AuthenticateUserService {
         name: user.name,
         email: user.email,
         role: activeRole,
-        organization_id: user.organization_id
+        organization_id: user.organization_id,
+        is_super_admin: user.is_super_admin
       },
       token,
     };

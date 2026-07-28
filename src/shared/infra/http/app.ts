@@ -13,6 +13,7 @@ import { skillsRoutes } from '../../../modules/skills/skills.routes';
 import { pushRoutes } from '../../../modules/notifications/push.routes';
 import { teamsRoutes } from '../../../modules/teams/teams.routes';
 import { billingRoutes } from '../../../modules/billing/billing.routes';
+import { adminRoutes } from '../../../modules/admin/admin.routes';
 import { isAuthenticated } from './middlewares/isAuthenticated';
 import { requireActiveSubscription } from './middlewares/requireActiveSubscription';
 
@@ -38,6 +39,7 @@ app.use('/users', usersRoutes);
 app.use('/sessions', sessionsRouter);
 app.use('/push', pushRoutes);
 app.use('/billing', billingRoutes);
+app.use('/super-admin', adminRoutes);
 
 // Rotas B2B (exigem assinatura ativa)
 app.use('/songs', isAuthenticated, requireActiveSubscription, songsRoutes);

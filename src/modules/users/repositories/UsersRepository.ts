@@ -13,9 +13,9 @@ export interface UserRow {
 
 export class UsersRepository {
   
-  async findByEmail(email: string): Promise<UserRow & { organization_id?: string; org_role?: string } | null> {
+  async findByEmail(email: string): Promise<UserRow & { organization_id?: string; org_role?: string, is_super_admin?: boolean } | null> {
     const query = `
-      SELECT u.id, u.name, u.email, u.password_hash, 
+      SELECT u.id, u.name, u.email, u.password_hash, u.is_super_admin,
              ou.organization_id, ou.role as org_role, u.role as legacy_role
       FROM users u
       LEFT JOIN organization_users ou ON ou.user_id = u.id

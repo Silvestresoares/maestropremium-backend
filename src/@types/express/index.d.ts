@@ -4,6 +4,7 @@ declare namespace Express {
       id: string | number;
       organization_id?: string;
       role?: string;
+      is_super_admin?: boolean;
     };
   }
 }

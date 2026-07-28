@@ -8,6 +8,7 @@ interface TokenPayload {
   sub: string;
   role?: string;
   organization_id?: string;
+  is_super_admin?: boolean;
 }
 
 // No longer needed because of @types/express/index.d.ts
@@ -33,13 +34,14 @@ export function isAuthenticated(
     const decoded = verify(token, process.env.JWT_SECRET as string);
 
     // 3. Pegar os dados customizados e o ID
-    const { sub, organization_id, role } = decoded as TokenPayload;
+    const { sub, organization_id, role, is_super_admin } = decoded as TokenPayload;
 
     // 4. Injetar o ID do usuário na requisição para as próximas rotas saberem quem está logado
     request.user = {
       id: sub,
       organization_id,
-      role
+      role,
+      is_super_admin
     };
 
     // 5. Tudo certo! Deixa a requisição seguir em frente.
