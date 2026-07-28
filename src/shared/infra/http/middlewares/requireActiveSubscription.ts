@@ -4,7 +4,12 @@ import { AppError } from '../../../errors/AppError';
 
 export async function requireActiveSubscription(req: Request, res: Response, next: NextFunction) {
   // O usuário precisa estar autenticado (passar pelo isAuthenticated antes desse)
-  const { organization_id } = req.user as any;
+  const { organization_id, is_super_admin } = req.user as any;
+
+  // Dono do sistema (Super Admin) nunca sofre bloqueio de pagamento
+  if (is_super_admin) {
+    return next();
+  }
 
   if (!organization_id) {
     throw new AppError('Usuário não pertence a nenhuma organização.', 403);
