@@ -79,4 +79,13 @@ export class AsaasService {
       throw new AppError('Erro ao buscar código PIX', 500);
     }
   }
+  async getPaymentsBySubscription(subscriptionId: string) {
+    try {
+      const response = await this.api.get(`/payments?subscription=${subscriptionId}`);
+      return response.data; 
+    } catch (error: any) {
+      console.error('Erro ao buscar pagamentos da assinatura Asaas:', error.response?.data || error.message);
+      throw new AppError('Erro ao buscar pagamentos da assinatura', 500);
+    }
+  }
 }

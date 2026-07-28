@@ -99,7 +99,21 @@ export class BillingController {
   async getPixQrCode(req: Request, res: Response) {
     const { paymentId } = req.params;
     const asaas = new AsaasService();
-    const qrCode = await asaas.getPaymentPixQrCode(paymentId);
+
+    let idToUse = paymentId;
+
+    // Se recebemos um ID de assinatura (sub_), buscamos o primeiro pagamento gerado para ela
+    if (paymentId.startsWith('sub_')) {
+      const payments = await asaas.getPaymentsBySubscription(paymentId);
+      if (payments.data && payments.data.length > 0) {
+        // Pega o pagamento mais recente / primeiro pagamento
+        idToUse = payments.data[0].id;
+      } else {
+        throw new AppError('Nenhum pagamento encontrado para esta assinatura.', 404);
+      }
+    }
+
+    const qrCode = await asaas.getPaymentPixQrCode(idToUse);
     return res.json(qrCode);
   }
 }

@@ -4,10 +4,11 @@ import { pool } from '../../../config/database';
 export class WebhookController {
   async handleAsaasWebhook(req: Request, res: Response) {
     const asaasToken = req.headers['asaas-access-token'];
-    const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+    const expectedTokenProd = process.env.ASAAS_WEBHOOK_TOKEN;
+    const expectedTokenTest = process.env.ASAAS_WEBHOOK_TOKEN_TEST;
 
-    // Validate the token to ensure the request actually came from Asaas
-    if (expectedToken && asaasToken !== expectedToken) {
+    // Se a API exige tokens, mas nenhum dos dois bate com o token recebido
+    if ((expectedTokenProd || expectedTokenTest) && asaasToken !== expectedTokenProd && asaasToken !== expectedTokenTest) {
       return res.status(401).send('Unauthorized Webhook');
     }
 
