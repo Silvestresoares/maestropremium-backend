@@ -12,7 +12,9 @@ import { sessionsRouter } from '../../../modules/users/sessions.routes';
 import { skillsRoutes } from '../../../modules/skills/skills.routes';
 import { pushRoutes } from '../../../modules/notifications/push.routes';
 import { teamsRoutes } from '../../../modules/teams/teams.routes';
+import { billingRoutes } from '../../../modules/billing/billing.routes';
 import { isAuthenticated } from './middlewares/isAuthenticated';
+import { requireActiveSubscription } from './middlewares/requireActiveSubscription';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -31,16 +33,19 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/files', express.static(path.resolve(__dirname, '..', '..', '..', '..', 'uploads')));
 
-// Registro de rotas dos módulos
+// Registro de rotas dos módulos (públicas ou que apenas exigem auth)
 app.use('/users', usersRoutes);
-app.use('/songs', songsRoutes);
-app.use('/schedules', schedulesRoutes);
-app.use('/events', eventsRoutes);
-app.use('/setlists', setlistsRoutes);
 app.use('/sessions', sessionsRouter);
-app.use('/skills', skillsRoutes);
 app.use('/push', pushRoutes);
-app.use('/teams', teamsRoutes);
+app.use('/billing', billingRoutes);
+
+// Rotas B2B (exigem assinatura ativa)
+app.use('/songs', isAuthenticated, requireActiveSubscription, songsRoutes);
+app.use('/schedules', isAuthenticated, requireActiveSubscription, schedulesRoutes);
+app.use('/events', isAuthenticated, requireActiveSubscription, eventsRoutes);
+app.use('/setlists', isAuthenticated, requireActiveSubscription, setlistsRoutes);
+app.use('/teams', isAuthenticated, requireActiveSubscription, teamsRoutes);
+app.use('/skills', isAuthenticated, requireActiveSubscription, skillsRoutes);
 
 app.get('/health', (request: Request, response: Response) => {
   return response.json({

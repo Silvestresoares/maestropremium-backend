@@ -9,11 +9,12 @@ interface RegisterTenantRequest {
   email: string;
   password?: string;
   organizationName: string;
+  phone?: string;
 }
 
 export class RegisterTenantService {
-  async execute({ name, email, password, organizationName }: RegisterTenantRequest) {
-    if (!name || !email || !password || !organizationName) {
+  async execute({ name, email, password, organizationName, phone }: RegisterTenantRequest) {
+    if (!name || !email || !password || !organizationName || !phone) {
       throw new AppError('Todos os campos são obrigatórios.', 400);
     }
 
@@ -35,10 +36,10 @@ export class RegisterTenantService {
         // Criar novo usuário
         const passwordHash = await hash(password, 8);
         const userResult = await client.query(`
-          INSERT INTO users (name, email, password_hash)
-          VALUES ($1, $2, $3)
-          RETURNING id, name, email;
-        `, [name, email, passwordHash]);
+          INSERT INTO users (name, email, password_hash, phone)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id, name, email, phone;
+        `, [name, email, passwordHash, phone]);
         userId = userResult.rows[0].id;
         user = userResult.rows[0];
       }

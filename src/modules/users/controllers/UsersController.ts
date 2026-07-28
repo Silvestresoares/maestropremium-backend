@@ -9,10 +9,10 @@ import { createUserSchema } from '../schemas/createUser.schema';
 
 export class UsersController {
   async register(request: Request, response: Response): Promise<Response> {
-    const { name, email, password, organizationName } = request.body;
+    const { name, email, password, organizationName, phone } = request.body;
     
     const registerTenantService = new RegisterTenantService();
-    const result = await registerTenantService.execute({ name, email, password, organizationName });
+    const result = await registerTenantService.execute({ name, email, password, organizationName, phone });
 
     return response.status(201).json(result);
   }
