@@ -20,6 +20,8 @@ io.on('connection', (socket) => {
   socket.on('join_event', (eventId) => {
     socket.join(`event_${eventId}`);
     console.log(`👥 [Socket]: Usuário ${socket.id} entrou no evento ${eventId}`);
+    // Notifica os outros membros da sala que alguém entrou/reconectou
+    socket.to(`event_${eventId}`).emit('follower_joined');
   });
 
   // Solicitar liderança
@@ -61,6 +63,14 @@ io.on('connection', (socket) => {
 
   socket.on('sync_scroll', ({ eventId, scrollRatio }) => {
     socket.to(`event_${eventId}`).emit('sync_scrolled', scrollRatio);
+  });
+
+  socket.on('sync_draw_paths', ({ eventId, paths, index }) => {
+    socket.to(`event_${eventId}`).emit('sync_draw_paths', { paths, index });
+  });
+
+  socket.on('sync_clear_draw', ({ eventId, index }) => {
+    socket.to(`event_${eventId}`).emit('sync_clear_draw', index);
   });
 
   socket.on('disconnect', () => {
