@@ -11,6 +11,12 @@ Router.prototype.use = usersRoutes.use('/sessions', sessionsRouter);
 // Definição da rota de cadastro PÚBLICA POST /users/register (Cria a Organização)
 usersRoutes.post('/register', usersController.register.bind(usersController));
 
+// Rota de recuperação de senha PÚBLICA POST /users/password/forgot
+usersRoutes.post('/password/forgot', usersController.forgotPassword.bind(usersController));
+
+// Rota de reset de senha PÚBLICA POST /users/password/reset
+usersRoutes.post('/password/reset', usersController.resetPassword.bind(usersController));
+
 // Definição da rota de criação POST /users - PROTEGIDA!
 usersRoutes.post('/', isAdmin, usersController.create.bind(usersController));
 

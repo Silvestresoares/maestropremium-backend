@@ -6,6 +6,8 @@ import { UpdateUserRoleService } from '../services/UpdateUserRoleService';
 import { UpdateUserService } from '../services/UpdateUserService';
 import { DeleteUserService } from '../services/DeleteUserService';
 import { createUserSchema } from '../schemas/createUser.schema';
+import { ForgotPasswordService } from '../services/ForgotPasswordService';
+import { ResetPasswordService } from '../services/ResetPasswordService';
 
 export class UsersController {
   async register(request: Request, response: Response): Promise<Response> {
@@ -15,6 +17,24 @@ export class UsersController {
     const result = await registerTenantService.execute({ name, email, password, organizationName, phone });
 
     return response.status(201).json(result);
+  }
+
+  async forgotPassword(request: Request, response: Response): Promise<Response> {
+    const { email } = request.body;
+
+    const forgotPasswordService = new ForgotPasswordService();
+    await forgotPasswordService.execute(email);
+
+    return response.status(204).send();
+  }
+
+  async resetPassword(request: Request, response: Response): Promise<Response> {
+    const { token, newPassword } = request.body;
+
+    const resetPasswordService = new ResetPasswordService();
+    await resetPasswordService.execute(token, newPassword);
+
+    return response.status(204).send();
   }
 
   async create(request: Request, response: Response): Promise<Response> {
