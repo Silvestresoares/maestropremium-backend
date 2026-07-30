@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { UsersController } from './controllers/UsersController';
 import { sessionsRouter } from '../../modules/users/sessions.routes';
 import { isAdmin } from '../../shared/infra/http/middlewares/isAdmin';
+import { isAuthenticated } from '../../shared/infra/http/middlewares/isAuthenticated';
 
 const usersRoutes = Router();
 const usersController = new UsersController();
@@ -16,6 +17,9 @@ usersRoutes.post('/password/forgot', usersController.forgotPassword.bind(usersCo
 
 // Rota de reset de senha PÚBLICA POST /users/password/reset
 usersRoutes.post('/password/reset', usersController.resetPassword.bind(usersController));
+
+// Rota de atualização de própria senha PUT /users/password/update - QUALQUER USUÁRIO LOGADO
+usersRoutes.put('/password/update', isAuthenticated, usersController.changePassword.bind(usersController));
 
 // Definição da rota de criação POST /users - PROTEGIDA!
 usersRoutes.post('/', isAdmin, usersController.create.bind(usersController));

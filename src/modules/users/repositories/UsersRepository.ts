@@ -12,7 +12,12 @@ export interface UserRow {
 }
 
 export class UsersRepository {
-  
+  async findById(id: number | string): Promise<UserRow | null> {
+    const query = 'SELECT id, name, email, password_hash, role FROM users WHERE id = $1 LIMIT 1;';
+    const result = await pool.query(query, [id]);
+    return result.rows[0] || null;
+  }
+
   async findByEmail(email: string): Promise<UserRow & { organization_id?: string; org_role?: string, is_super_admin?: boolean } | null> {
     const query = `
       SELECT u.id, u.name, u.email, u.password_hash, u.is_super_admin,
@@ -43,6 +48,10 @@ export class UsersRepository {
     const query = 'UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, role, created_at;';
     const result = await pool.query(query, [name, email, id]);
     return result.rows[0] || null;
+  }
+  async updatePassword(id: number | string, password_hash: string): Promise<void> {
+    const query = 'UPDATE users SET password_hash = $1 WHERE id = $2;';
+    await pool.query(query, [password_hash, id]);
   }
   
   async updateRole(id: number | string, role: string, organization_id?: string): Promise<UserRow | null> {

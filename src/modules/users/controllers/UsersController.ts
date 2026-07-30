@@ -8,8 +8,17 @@ import { DeleteUserService } from '../services/DeleteUserService';
 import { createUserSchema } from '../schemas/createUser.schema';
 import { ForgotPasswordService } from '../services/ForgotPasswordService';
 import { ResetPasswordService } from '../services/ResetPasswordService';
+import { UpdateUserPasswordService } from '../services/UpdateUserPasswordService';
 
 export class UsersController {
+  async changePassword(request: Request, response: Response): Promise<Response> {
+    const currentUser = (request as any).user;
+    
+    const updateUserPasswordService = new UpdateUserPasswordService();
+    await updateUserPasswordService.execute(currentUser.id, request.body);
+
+    return response.status(204).send();
+  }
   async register(request: Request, response: Response): Promise<Response> {
     const { name, email, password, organizationName, phone } = request.body;
     
