@@ -29,14 +29,21 @@ export class WebhookController {
         let values = [];
 
         if (payment.subscription) {
+          // Buscamos o plano da organização para calcular a validade corretamente
+          const { rows } = await client.query('SELECT subscription_plan FROM organizations WHERE asaas_customer_id = $1', [customerId]);
+          const planName = rows[0]?.subscription_plan || 'Mensal';
+          
+          let intervalStr = '30 days';
+          if (planName === 'Trimestral') intervalStr = '3 months';
+          else if (planName === 'Semestral') intervalStr = '6 months';
+          else if (planName === 'Anual') intervalStr = '1 year';
+
           // It's a recurring payment
           query = `
             UPDATE organizations 
-            SET subscription_status = 'ACTIVE', subscription_expires_at = CURRENT_TIMESTAMP + INTERVAL '30 days'
+            SET subscription_status = 'ACTIVE', subscription_expires_at = CURRENT_TIMESTAMP + INTERVAL '${intervalStr}'
             WHERE asaas_customer_id = $1
           `;
-          // Ideally we would calculate the exact interval based on the plan cycle or Asaas nextDueDate,
-          // but for MVP, this sets them to ACTIVE. A scheduled job or webhooks handle expirations.
           values = [customerId];
         } else {
           // It's a lifetime payment (no subscription ID associated with the payment usually, or we can check the plan name)

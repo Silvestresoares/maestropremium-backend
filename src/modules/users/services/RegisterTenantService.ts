@@ -44,10 +44,10 @@ export class RegisterTenantService {
         user = userResult.rows[0];
       }
 
-      // Criar a Organização
+      // Criar a Organização com período de Trial de 30 dias
       const orgResult = await client.query(`
-        INSERT INTO organizations (name)
-        VALUES ($1)
+        INSERT INTO organizations (name, subscription_status, subscription_expires_at)
+        VALUES ($1, 'TRIAL', CURRENT_TIMESTAMP + INTERVAL '30 days')
         RETURNING id, name;
       `, [organizationName]);
       newOrganizationId = orgResult.rows[0].id;
