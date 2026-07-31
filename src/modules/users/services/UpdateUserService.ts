@@ -2,7 +2,7 @@ import { UsersRepository } from '../repositories/UsersRepository';
 import { AppError } from '../../../shared/errors/AppError';
 
 export class UpdateUserService {
-  async execute(id: number, name: string, email: string) {
+  async execute(id: string | number, name: string, email: string) {
     if (!name || !email) {
       throw new AppError('Nome e e-mail são obrigatórios.');
     }

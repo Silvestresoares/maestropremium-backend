@@ -72,7 +72,7 @@ export class UsersController {
     const { name, email } = request.body;
 
     const updateUserService = new UpdateUserService();
-    const user = await updateUserService.execute(Number(id), name, email);
+    const user = await updateUserService.execute(id, name, email);
 
     return response.json(user);
   }
@@ -83,7 +83,7 @@ export class UsersController {
     const currentUser = (request as any).user;
 
     const updateUserRoleService = new UpdateUserRoleService();
-    const user = await updateUserRoleService.execute(Number(id), role, currentUser?.organization_id);
+    const user = await updateUserRoleService.execute(id, role, currentUser?.organization_id);
 
     return response.json(user);
   }
@@ -98,7 +98,7 @@ export class UsersController {
     }
 
     const deleteUserService = new DeleteUserService();
-    await deleteUserService.execute(Number(id), currentUser?.organization_id);
+    await deleteUserService.execute(id, currentUser?.organization_id);
 
     return response.status(204).send();
   }

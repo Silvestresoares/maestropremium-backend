@@ -44,7 +44,7 @@ export class UsersRepository {
     return result.rows;
   }
   
-  async update(id: number, name: string, email: string): Promise<UserRow | null> {
+  async update(id: string | number, name: string, email: string): Promise<UserRow | null> {
     const query = 'UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, role, created_at;';
     const result = await pool.query(query, [name, email, id]);
     return result.rows[0] || null;
