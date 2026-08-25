@@ -13,8 +13,8 @@ class MailProvider {
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'silvestresoares.educ@gmail.com',
-        pass: 'kivapaxbhqxcvjri',
+        user: process.env.SMTP_USER || 'silvestresoares.educ@gmail.com',
+        pass: process.env.SMTP_PASS || 'kivapaxbhqxcvjri',
       },
     });
   }
