@@ -49,7 +49,7 @@ export class CreateUserService {
         );
         
         if (organization_id) {
-          const res = await client.query('SELECT name FROM tenants WHERE id = $1', [organization_id]);
+          const res = await client.query('SELECT name FROM organizations WHERE id = $1', [organization_id]);
           if (res.rows.length > 0) {
             tenantName = res.rows[0].name;
           }
