@@ -40,12 +40,20 @@ export class CreateUserService {
     if (isInvite) {
       const inviteToken = crypto.randomBytes(32).toString('hex');
       
+      let tenantName = '';
       const client = await pool.connect();
       try {
         await client.query(
           "UPDATE users SET reset_token = $1, reset_token_expires = NOW() + INTERVAL '48 hours' WHERE id = $2",
           [inviteToken, user.id]
         );
+        
+        if (organization_id) {
+          const res = await client.query('SELECT name FROM tenants WHERE id = $1', [organization_id]);
+          if (res.rows.length > 0) {
+            tenantName = res.rows[0].name;
+          }
+        }
       } finally {
         client.release();
       }
@@ -56,7 +64,7 @@ export class CreateUserService {
       const emailBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Olá, ${user.name}!</h2>
-          <p>Você foi convidado para participar da equipe no Tom & Ordem.</p>
+          <p>Você foi convidado para participar da equipe ${tenantName ? `<strong>${tenantName}</strong> ` : ''}no Tom & Ordem.</p>
           <p>Clique no botão abaixo para definir sua senha inicial e acessar o sistema:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${inviteLink}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Definir Minha Senha</a>
@@ -69,8 +77,9 @@ export class CreateUserService {
 
       await mailProvider.sendMail({
         to: email,
-        subject: 'Convite para a equipe - Tom & Ordem',
+        subject: tenantName ? `Convite para a equipe ${tenantName} - Tom & Ordem` : 'Convite para a equipe - Tom & Ordem',
         body: emailBody,
+        fromName: tenantName ? `Tom & Ordem - ${tenantName}` : 'Tom & Ordem'
       });
     }
 

@@ -4,6 +4,7 @@ interface SendMailData {
   to: string;
   subject: string;
   body: string;
+  fromName?: string;
 }
 
 class MailProvider {
@@ -19,10 +20,10 @@ class MailProvider {
     });
   }
 
-  async sendMail({ to, subject, body }: SendMailData): Promise<void> {
+  async sendMail({ to, subject, body, fromName }: SendMailData): Promise<void> {
     try {
       await this.transporter.sendMail({
-        from: '"Maestro Cifras" <silvestresoares.educ@gmail.com>',
+        from: `"${fromName || 'Tom & Ordem'}" <${process.env.SMTP_USER || 'silvestresoares.educ@gmail.com'}>`,
         to,
         subject,
         html: body,
