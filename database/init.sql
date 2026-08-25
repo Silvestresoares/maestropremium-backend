@@ -1,0 +1,1 @@
+-- Arquivo de schema inicial descontinuado. Utilizar npm run setup:db para criar as tabelas.
