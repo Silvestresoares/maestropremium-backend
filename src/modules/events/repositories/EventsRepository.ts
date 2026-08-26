@@ -1,10 +1,30 @@
 import { pool } from '../../../config/database';
+import { CryptoService } from '../../../shared/utils/CryptoService';
 
 interface ICreateEventDTO {
   title: string;
   description: string;
   date_time: Date;
   organization_id?: string;
+}
+
+// Helper to decrypt team member names safely
+function decryptTeamMembers(rows: any[]) {
+  return rows.map(row => {
+    if (row.team && Array.isArray(row.team)) {
+      row.team = row.team.map((member: any) => {
+        if (member.name) {
+          try {
+            member.name = CryptoService.decrypt(member.name);
+          } catch (_) {
+            // keep original if not encrypted (e.g. seed data)
+          }
+        }
+        return member;
+      });
+    }
+    return row;
+  });
 }
 
 export class EventsRepository {
@@ -60,14 +80,30 @@ export class EventsRepository {
             WHERE et.event_id = e.id
           ),
           '[]'::json
-        ) AS team
+        ) AS team,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ea.id,
+                'name', ea.name,
+                'url', ea.url,
+                'type', ea.type,
+                'created_at', ea.created_at
+              ) ORDER BY ea.created_at DESC
+            )
+            FROM event_attachments ea
+            WHERE ea.event_id = e.id
+          ),
+          '[]'::json
+        ) AS attachments
       FROM events e
       WHERE e.organization_id = $1
       ORDER BY e.date_time ASC;
     `;
     
     const { rows } = await pool.query(query, [organization_id]);
-    return rows;
+    return decryptTeamMembers(rows);
   }
 
   // Método para buscar um evento específico pelo ID
@@ -108,7 +144,23 @@ export class EventsRepository {
             WHERE et.event_id = e.id
           ),
           '[]'::json
-        ) AS team
+        ) AS team,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', ea.id,
+                'name', ea.name,
+                'url', ea.url,
+                'type', ea.type,
+                'created_at', ea.created_at
+              ) ORDER BY ea.created_at DESC
+            )
+            FROM event_attachments ea
+            WHERE ea.event_id = e.id
+          ),
+          '[]'::json
+        ) AS attachments
       FROM events e
       WHERE e.id = $1;
     `;
@@ -117,7 +169,8 @@ export class EventsRepository {
     const { rows } = await pool.query(query, [id]);
     
     // Retorna o evento encontrado ou undefined se não existir
-    return rows[0];
+    const [event] = decryptTeamMembers(rows);
+    return event;
   }
   // Método para deletar um evento pelo ID
   async delete(id: string, organization_id: string) {

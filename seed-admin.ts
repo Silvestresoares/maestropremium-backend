@@ -11,7 +11,7 @@ async function seedAdmin() {
     const email = 'maestro@admin.com';
     const password = '123456';
     const role = 'admin';
-    const name = 'Mestre Maestro';
+    const name = 'Admin Tom & Ordem';
 
     // Hash da senha
     const passwordHash = await hash(password, 8);

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { EventsRepository } from '../repositories/EventsRepository';
 import { EventSongsRepository } from '../repositories/EventSongsRepository';
 import { EventTeamRepository } from '../repositories/EventTeamRepository';
+import { EventAttachmentsRepository } from '../repositories/EventAttachmentsRepository';
 import { NotificationService } from '../../notifications/services/NotificationService';
 
 export class EventsController {
@@ -348,6 +349,65 @@ export class EventsController {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: 'Erro ao aplicar equipe fixa ao evento.' });
+    }
+  }
+
+  async uploadAttachment(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const file = req.file;
+      const currentUser = req.user!;
+
+      if (!file) {
+        return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+      }
+
+      const eventsRepository = new EventsRepository();
+      const event = await eventsRepository.findById(id, currentUser?.organization_id);
+      if (!event) {
+        return res.status(404).json({ error: 'Evento não encontrado.' });
+      }
+
+      const extension = file.originalname.split('.').pop()?.toLowerCase() || '';
+      let type = 'unknown';
+      if (extension === 'pdf') type = 'pdf';
+      else if (extension === 'txt') type = 'txt';
+      else if (extension.match(/^(doc|docx)$/)) type = 'doc';
+
+      const eventAttachmentsRepository = new EventAttachmentsRepository();
+      const attachment = await eventAttachmentsRepository.addAttachment(
+        id,
+        file.originalname,
+        file.path, // URL do cloudinary
+        type,
+        currentUser.organization_id
+      );
+
+      return res.status(201).json(attachment);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Erro ao fazer upload do anexo.' });
+    }
+  }
+
+  async removeAttachment(req: Request, res: Response) {
+    try {
+      const { id, attachmentId } = req.params;
+      const currentUser = req.user!;
+
+      const eventAttachmentsRepository = new EventAttachmentsRepository();
+      
+      const attachment = await eventAttachmentsRepository.findById(attachmentId, currentUser.organization_id);
+      if (!attachment || attachment.event_id !== id) {
+        return res.status(404).json({ error: 'Anexo não encontrado.' });
+      }
+
+      await eventAttachmentsRepository.removeAttachment(attachmentId, id, currentUser.organization_id);
+
+      return res.status(204).send();
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Erro ao remover anexo.' });
     }
   }
 }

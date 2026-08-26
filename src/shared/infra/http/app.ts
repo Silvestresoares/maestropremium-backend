@@ -7,6 +7,7 @@ import { usersRoutes } from '../../../modules/users/users.routes';
 import { songsRoutes } from '../../../modules/songs/songs.routes';
 import { schedulesRoutes } from '../../../modules/schedules/schedules.routes';
 import { eventsRoutes } from '../../../modules/events/events.routes';
+import { calendarRoutes } from '../../../modules/events/calendar.routes';
 import { setlistsRoutes } from '../../../modules/setlists/setlists.routes';
 import { sessionsRouter } from '../../../modules/users/sessions.routes';
 import { skillsRoutes } from '../../../modules/skills/skills.routes';
@@ -40,6 +41,9 @@ app.use('/sessions', sessionsRouter);
 app.use('/push', pushRoutes);
 app.use('/billing', billingRoutes);
 app.use('/super-admin', adminRoutes);
+
+// Rota pública para sincronização de calendário (não exige auth)
+app.use('/calendar', calendarRoutes);
 
 // Rotas B2B (exigem assinatura ativa)
 app.use('/songs', isAuthenticated, requireActiveSubscription, songsRoutes);

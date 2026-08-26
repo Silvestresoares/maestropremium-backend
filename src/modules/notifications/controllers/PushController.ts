@@ -34,7 +34,7 @@ export class PushController {
     try {
       const payload = JSON.stringify({
         title: 'Notificações Ativadas!',
-        body: 'Você receberá avisos do Maestro Cifras aqui.',
+        body: 'Você receberá avisos do Tom & Ordem aqui.',
         url: '/dashboard'
       });
       await webpush.sendNotification(subscription, payload);

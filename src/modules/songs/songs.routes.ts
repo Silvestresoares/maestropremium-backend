@@ -7,6 +7,8 @@ import { isAuthenticated } from '../../shared/infra/http/middlewares/isAuthentic
 import { isAdmin } from '../../shared/infra/http/middlewares/isAdmin';
 import { SongAudioController } from './controllers/SongAudioController';
 import { SongSheetMusicController } from './controllers/SongSheetMusicController';
+import { SongSectionsController } from './controllers/SongSectionsController';
+import { SongArrangementController } from './controllers/SongArrangementController';
 import { CifraClubScraperController } from './controllers/CifraClubScraperController';
 import { pdfLimiter } from '../../shared/infra/http/middlewares/rateLimiter';
 
@@ -16,6 +18,8 @@ const songsController = new SongsController();
 const annotationsController = new SongAnnotationsController();
 const audioController = new SongAudioController();
 const sheetMusicController = new SongSheetMusicController();
+const sectionsController = new SongSectionsController();
+const arrangementController = new SongArrangementController();
 const cifraClubScraperController = new CifraClubScraperController();
 
 // Buscador e Scraper do Cifra Club
@@ -53,5 +57,10 @@ songsRoutes.delete('/:id/audio/:trackId', isAdmin, audioController.delete.bind(a
 songsRoutes.post('/:id/sheet-music', isAdmin, upload.single('file'), sheetMusicController.upload.bind(sheetMusicController));
 songsRoutes.put('/:id/sheet-music/:trackId', isAdmin, sheetMusicController.update.bind(sheetMusicController));
 songsRoutes.delete('/:id/sheet-music/:trackId', isAdmin, sheetMusicController.delete.bind(sheetMusicController));
+// Seções (Marcadores de Tempo)
+songsRoutes.put('/:id/sections', isAdmin, sectionsController.update.bind(sectionsController));
+
+// Arranjo Personalizado (Live ReOrder)
+songsRoutes.put('/:id/arrangement', isAuthenticated, arrangementController.save.bind(arrangementController));
 
 export { songsRoutes };

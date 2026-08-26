@@ -1,4 +1,5 @@
 import { pool } from '../../../config/database';
+import { CryptoService } from '../../../shared/utils/CryptoService';
 
 interface TeamRow {
   id: string;
@@ -78,6 +79,15 @@ export class TeamsRepository {
       WHERE tm.team_id = $1;
     `;
     const result = await pool.query(query, [team_id]);
-    return result.rows;
+    return result.rows.map(row => {
+      if (row.name) {
+        try {
+          row.name = CryptoService.decrypt(row.name);
+        } catch (e) {
+          // keep original if decryption fails (e.g. unencrypted seed data)
+        }
+      }
+      return row;
+    });
   }
 }

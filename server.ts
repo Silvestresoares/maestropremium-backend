@@ -87,7 +87,7 @@ async function startServer() {
 
     // Inicia o servidor HTTP integrado com Socket.io
     server.listen(PORT, () => {
-      console.log(`🚀 [Maestro]: Server running on http://localhost:${PORT}`);
+      console.log(`🚀 [Tom & Ordem]: Server running on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('❌ [Critical]: Falha ao iniciar o servidor. Não foi possível conectar ao banco de dados.');

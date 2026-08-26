@@ -88,7 +88,7 @@ export class BillingController {
         value: plan.value,
         nextDueDate,
         cycle: plan.cycle,
-        description: `Assinatura Maestro Premium - Plano ${plan.name}`
+        description: `Assinatura Tom & Ordem Premium - Plano ${plan.name}`
       };
 
       if (billingType === 'CREDIT_CARD' && creditCard && creditCardHolderInfo) {
