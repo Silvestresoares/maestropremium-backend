@@ -6,14 +6,18 @@ export class ForgotPasswordService {
   async execute(email: string): Promise<void> {
     const client = await pool.connect();
     try {
+      const { CryptoService } = await import('../../../shared/utils/CryptoService');
+      const emailHash = CryptoService.generateBlindIndex(email);
+      
       // 1. Verifica se o usuário existe
-      const userResult = await client.query('SELECT id, name FROM users WHERE email = $1', [email]);
+      const userResult = await client.query('SELECT id, name FROM users WHERE email_hash = $1', [emailHash]);
       
       if (userResult.rows.length === 0) {
         // Retornamos silenciosamente para evitar "email enumeration attacks"
         return;
       }
       const user = userResult.rows[0];
+      user.name = CryptoService.decrypt(user.name);
 
       // 2. Gera um token criptograficamente seguro
       const token = crypto.randomBytes(32).toString('hex');
@@ -33,7 +37,7 @@ export class ForgotPasswordService {
       const emailBody = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Olá, ${user.name}!</h2>
-          <p>Você solicitou a recuperação de senha para sua conta no Maestro Cifras.</p>
+          <p>Você solicitou a recuperação de senha para sua conta no Tom & Ordem.</p>
           <p>Clique no botão abaixo para redefinir sua senha:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetLink}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Redefinir Minha Senha</a>
@@ -46,8 +50,9 @@ export class ForgotPasswordService {
 
       await mailProvider.sendMail({
         to: email,
-        subject: 'Maestro Cifras - Recuperação de Senha',
+        subject: 'Tom & Ordem - Recuperação de Senha',
         body: emailBody,
+        fromName: 'Tom & Ordem'
       });
 
     } finally {
