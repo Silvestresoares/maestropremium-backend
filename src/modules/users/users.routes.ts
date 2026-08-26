@@ -37,6 +37,11 @@ usersRoutes.put('/:id/role', isAdmin, usersController.updateRole.bind(usersContr
 // Rotas do Titular (LGPD)
 usersRoutes.get('/me/export', isAuthenticated, usersController.exportData.bind(usersController));
 usersRoutes.delete('/me', isAuthenticated, usersController.deleteMe.bind(usersController));
+usersRoutes.post('/lgpd-consent', isAuthenticated, usersController.submitConsent.bind(usersController));
+
+// Rotas de Admin LGPD
+usersRoutes.get('/admin/lgpd/export/:email', isAdmin, usersController.exportDataByEmail.bind(usersController));
+usersRoutes.delete('/admin/lgpd/anonymize/:email', isAdmin, usersController.anonymizeDataByEmail.bind(usersController));
 
 // Rota de exclusão DELETE /users/:id - PROTEGIDA!
 usersRoutes.delete('/:id', isAdmin, usersController.delete.bind(usersController));

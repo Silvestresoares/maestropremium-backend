@@ -14,7 +14,6 @@ describe('LGPD: UsersController (Exclusão e Exportação)', () => {
       email: `lgpd_${Date.now()}@test.com`,
       password: 'password123',
       organizationName: 'LGPD Org',
-      phone: '11999999999',
       acceptedTerms: true,
       isAdult: true
     });

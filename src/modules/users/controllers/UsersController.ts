@@ -22,13 +22,13 @@ export class UsersController {
     return response.status(204).send();
   }
   async register(request: Request, response: Response): Promise<Response> {
-    const { name, email, password, organizationName, phone, acceptedTerms, isAdult } = request.body;
+    const { name, email, password, organizationName, acceptedTerms, isAdult } = request.body;
     
     // Captura o IP para registro do consentimento LGPD
     const ipAddress = request.ip || request.connection.remoteAddress || '0.0.0.0';
 
     const registerTenantService = new RegisterTenantService();
-    const result = await registerTenantService.execute({ name, email, password, organizationName, phone, acceptedTerms, isAdult, ipAddress });
+    const result = await registerTenantService.execute({ name, email, password, organizationName, acceptedTerms, isAdult, ipAddress });
 
     return response.status(201).json(result);
   }
@@ -148,5 +148,108 @@ export class UsersController {
     };
 
     return response.json(exportPayload);
+  }
+
+  // LGPD: Registrar consentimento
+  async submitConsent(request: Request, response: Response): Promise<Response> {
+    const currentUser = request.user;
+    if (!currentUser?.id) {
+      return response.status(401).json({ error: 'Usuário não autenticado.' });
+    }
+
+    const ipAddress = request.ip || request.connection.remoteAddress || '0.0.0.0';
+
+    const { pool } = await import('../../../config/database');
+    const client = await pool.connect();
+    
+    try {
+      await client.query(`
+        INSERT INTO user_consents (user_id, document_version, ip_address)
+        VALUES ($1, 'v1.0', $2)
+      `, [currentUser.id, ipAddress]);
+    } catch (error) {
+      console.error('Erro ao salvar consentimento:', error);
+      return response.status(500).json({ error: 'Erro ao salvar consentimento.' });
+    } finally {
+      client.release();
+    }
+
+    return response.status(201).send();
+  }
+
+  // LGPD ADMIN: Exportação de dados por e-mail
+  async exportDataByEmail(request: Request, response: Response): Promise<Response> {
+    const { email } = request.params;
+    
+    const { UsersRepository } = await import('../repositories/UsersRepository');
+    const usersRepository = new UsersRepository();
+    const user = await usersRepository.findByEmail(email);
+
+    if (!user) {
+      return response.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    // Exemplo de exportação
+    const exportPayload = {
+      personal_data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: (user as any).phone || null
+      },
+      export_date: new Date().toISOString(),
+      requested_by_admin: request.user?.id
+    };
+
+    return response.json(exportPayload);
+  }
+
+  // LGPD ADMIN: Anonimização de dados por e-mail (Direito ao esquecimento)
+  async anonymizeDataByEmail(request: Request, response: Response): Promise<Response> {
+    const { email } = request.params;
+
+    const { UsersRepository } = await import('../repositories/UsersRepository');
+    const usersRepository = new UsersRepository();
+    const user = await usersRepository.findByEmail(email);
+
+    if (!user) {
+      return response.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    const { pool } = await import('../../../config/database');
+    const client = await pool.connect();
+
+    try {
+      const { CryptoService } = await import('../../../shared/utils/CryptoService');
+      const anonEmail = `excluido_${user.id}@anonymized.com`;
+      const anonName = 'Usuário Excluído';
+      
+      const emailHash = CryptoService.generateBlindIndex(anonEmail);
+      const encEmail = CryptoService.encrypt(anonEmail);
+      const encName = CryptoService.encrypt(anonName);
+
+      await client.query('BEGIN');
+      
+      // Update the user to anonymize data
+      await client.query(`
+        UPDATE users 
+        SET 
+          name = $1,
+          email = $2,
+          email_hash = $3,
+          password_hash = 'INVALIDATED'
+        WHERE id = $4
+      `, [encName, encEmail, emailHash, user.id]);
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Erro ao anonimizar usuário:', error);
+      return response.status(500).json({ error: 'Erro interno ao anonimizar usuário.' });
+    } finally {
+      client.release();
+    }
+
+    return response.status(204).send();
   }
 }

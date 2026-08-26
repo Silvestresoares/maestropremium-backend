@@ -40,10 +40,14 @@ export class BillingController {
 
   async subscribe(req: Request, res: Response) {
     const { organization_id, id: userId } = req.user!; 
-    const { planId, billingType, cpfCnpj, creditCard, creditCardHolderInfo } = req.body;
+    const { planId, billingType, cpfCnpj, creditCard, creditCardHolderInfo, acceptedLgpd } = req.body;
 
     if (!PLANS[planId as keyof typeof PLANS]) {
       throw new AppError('Plano inválido', 400);
+    }
+    
+    if (!acceptedLgpd) {
+      throw new AppError('O consentimento LGPD é obrigatório para processamento do pagamento.', 400);
     }
 
     const plan = PLANS[planId as keyof typeof PLANS];
@@ -54,7 +58,16 @@ export class BillingController {
       await client.query('BEGIN');
 
       const { rows: userRows } = await client.query('SELECT name, email FROM users WHERE id = $1', [userId]);
-      const { name, email } = userRows[0];
+      const { CryptoService } = await import('../../../shared/utils/CryptoService');
+      const name = CryptoService.decrypt(userRows[0].name);
+      const email = CryptoService.decrypt(userRows[0].email);
+
+      // LGPD: Register explicit consent for billing
+      const ipAddress = req.ip || req.connection.remoteAddress || '0.0.0.0';
+      await client.query(`
+        INSERT INTO user_consents (user_id, document_version, ip_address)
+        VALUES ($1, 'v1.0-billing', $2)
+      `, [userId, ipAddress]);
 
       // Check if organization already has an Asaas customer ID
       const { rows } = await client.query('SELECT asaas_customer_id FROM organizations WHERE id = $1', [organization_id]);

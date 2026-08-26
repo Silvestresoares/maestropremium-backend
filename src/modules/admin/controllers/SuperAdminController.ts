@@ -59,7 +59,14 @@ export class SuperAdminController {
         ORDER BY o.created_at DESC;
       `;
       const result = await client.query(query);
-      return res.json(result.rows);
+      const { CryptoService } = await import('../../../shared/utils/CryptoService');
+      const decryptedRows = result.rows.map(row => ({
+        ...row,
+        owner_name: CryptoService.decrypt(row.owner_name),
+        owner_email: CryptoService.decrypt(row.owner_email),
+        owner_phone: CryptoService.decrypt(row.owner_phone)
+      }));
+      return res.json(decryptedRows);
     } catch (error) {
       console.error(error);
       return res.status(500).json({ error: 'Internal server error' });

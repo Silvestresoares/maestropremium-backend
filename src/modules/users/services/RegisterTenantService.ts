@@ -3,22 +3,22 @@ import { pool } from '../../../config/database';
 import { UsersRepository } from '../repositories/UsersRepository';
 import { AppError } from '../../../shared/errors/AppError';
 import { sign } from 'jsonwebtoken';
+import { CryptoService } from '../../../shared/utils/CryptoService';
 
 interface RegisterTenantRequest {
   name: string;
   email: string;
-  password?: string;
+  password: string;
   organizationName: string;
-  phone?: string;
   acceptedTerms: boolean;
   isAdult: boolean;
   ipAddress?: string;
 }
 
 export class RegisterTenantService {
-  async execute({ name, email, password, organizationName, phone, acceptedTerms, isAdult, ipAddress }: RegisterTenantRequest) {
-    if (!name || !email || !password || !organizationName || !phone) {
-      throw new AppError('Todos os campos são obrigatórios.', 400);
+  async execute({ name, email, password, organizationName, acceptedTerms, isAdult, ipAddress }: RegisterTenantRequest) {
+    if (!name || !email || !password || !organizationName) {
+      throw new AppError('Todos os campos (nome, e-mail, senha, ministério) são obrigatórios.', 400);
     }
     if (!acceptedTerms || !isAdult) {
       throw new AppError('Você precisa aceitar os Termos e confirmar maioridade.', 400);
@@ -41,13 +41,20 @@ export class RegisterTenantService {
       } else {
         // Criar novo usuário
         const passwordHash = await hash(password, 8);
-        const userResult = await client.query(`
-          INSERT INTO users (name, email, password_hash, phone)
+        const encName = CryptoService.encrypt(name);
+        const encEmail = CryptoService.encrypt(email);
+        const emailHash = CryptoService.generateBlindIndex(email);
+
+        const { rows: userRows } = await client.query(`
+          INSERT INTO users (name, email, email_hash, password_hash)
           VALUES ($1, $2, $3, $4)
-          RETURNING id, name, email, phone;
-        `, [name, email, passwordHash, phone]);
-        userId = userResult.rows[0].id;
-        user = userResult.rows[0];
+          RETURNING id, name, email;
+        `, [encName, encEmail, emailHash, passwordHash]);
+        userId = userRows[0].id;
+        user = userRows[0];
+        
+        user.name = CryptoService.decrypt(user.name);
+        user.email = CryptoService.decrypt(user.email);
       }
 
       // Criar a Organização com período de Trial de 30 dias

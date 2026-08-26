@@ -28,7 +28,12 @@ export class AuthenticateUserService {
 
     const activeRole = user.org_role || user.legacy_role || 'musician';
     
-    // 3. Gera o Token JWT
+    // 3. Verifica consentimento LGPD
+    const { pool } = await import('../../../config/database');
+    const lgpdRes = await pool.query('SELECT 1 FROM user_consents WHERE user_id = $1 LIMIT 1', [user.id]);
+    const hasAcceptedTerms = (lgpdRes.rowCount ?? 0) > 0;
+    
+    // 4. Gera o Token JWT
     // Nota: O secret deve vir do seu .env
     const secret = process.env.JWT_SECRET || 'default-secret';
     
@@ -48,7 +53,8 @@ export class AuthenticateUserService {
         email: user.email,
         role: activeRole,
         organization_id: user.organization_id,
-        is_super_admin: user.is_super_admin
+        is_super_admin: user.is_super_admin,
+        hasAcceptedTerms
       },
       token,
     };

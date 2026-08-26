@@ -1,5 +1,6 @@
 import { pool } from '../../../config/database';
 import { CreateUserRawData } from '../schemas/createUser.schema';
+import { CryptoService } from '../../../shared/utils/CryptoService';
 
 export interface UserRow {
   id: number; // Certifique-se de que o tipo condiz com seu banco (uuid geralmente é string)
@@ -15,20 +16,31 @@ export class UsersRepository {
   async findById(id: number | string): Promise<UserRow | null> {
     const query = 'SELECT id, name, email, password_hash, role FROM users WHERE id = $1 LIMIT 1;';
     const result = await pool.query(query, [id]);
-    return result.rows[0] || null;
+    const row = result.rows[0];
+    if (row) {
+      row.name = CryptoService.decrypt(row.name);
+      row.email = CryptoService.decrypt(row.email);
+    }
+    return row || null;
   }
 
   async findByEmail(email: string): Promise<UserRow & { organization_id?: string; org_role?: string, is_super_admin?: boolean } | null> {
+    const emailHash = CryptoService.generateBlindIndex(email);
     const query = `
       SELECT u.id, u.name, u.email, u.password_hash, u.is_super_admin,
              ou.organization_id, ou.role as org_role, u.role as legacy_role
       FROM users u
       LEFT JOIN organization_users ou ON ou.user_id = u.id
-      WHERE u.email = $1
+      WHERE u.email_hash = $1
       LIMIT 1;
     `;
-    const result = await pool.query(query, [email]);
-    return result.rows[0] || null;
+    const result = await pool.query(query, [emailHash]);
+    const row = result.rows[0];
+    if (row) {
+      row.name = CryptoService.decrypt(row.name);
+      row.email = CryptoService.decrypt(row.email);
+    }
+    return row || null;
   }
   
   async findAll(organization_id?: string): Promise<Omit<UserRow, 'password_hash'>[]> {
@@ -41,7 +53,11 @@ export class UsersRepository {
       ORDER BY u.created_at DESC;
     `;
     const result = await pool.query(query, [organization_id]);
-    return result.rows;
+    return result.rows.map(row => ({
+      ...row,
+      name: CryptoService.decrypt(row.name),
+      email: CryptoService.decrypt(row.email)
+    }));
   }
 
   async checkUserInOrganization(user_id: string | number, organization_id: string): Promise<boolean> {
@@ -52,9 +68,19 @@ export class UsersRepository {
 
   
   async update(id: string | number, name: string, email: string): Promise<UserRow | null> {
-    const query = 'UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, role, created_at;';
-    const result = await pool.query(query, [name, email, id]);
-    return result.rows[0] || null;
+    const emailHash = CryptoService.generateBlindIndex(email);
+    const encName = CryptoService.encrypt(name);
+    const encEmail = CryptoService.encrypt(email);
+    
+    const query = 'UPDATE users SET name = $1, email = $2, email_hash = $3 WHERE id = $4 RETURNING id, name, email, role, created_at;';
+    const result = await pool.query(query, [encName, encEmail, emailHash, id]);
+    
+    const row = result.rows[0];
+    if (row) {
+      row.name = CryptoService.decrypt(row.name);
+      row.email = CryptoService.decrypt(row.email);
+    }
+    return row || null;
   }
   async updatePassword(id: number | string, password_hash: string): Promise<void> {
     const query = 'UPDATE users SET password_hash = $1 WHERE id = $2;';
@@ -88,13 +114,19 @@ export class UsersRepository {
     try {
       await client.query('BEGIN');
       
+      const emailHash = CryptoService.generateBlindIndex(email);
+      const encName = CryptoService.encrypt(name);
+      const encEmail = CryptoService.encrypt(email);
+
       const queryUser = `
-        INSERT INTO users (name, email, password_hash) 
-        VALUES ($1, $2, $3) 
+        INSERT INTO users (name, email, email_hash, password_hash) 
+        VALUES ($1, $2, $3, $4) 
         RETURNING id, name, email, created_at;
       `;
-      const result = await client.query(queryUser, [name, email, password_hash]);
+      const result = await client.query(queryUser, [encName, encEmail, emailHash, password_hash]);
       const user = result.rows[0];
+      user.name = CryptoService.decrypt(user.name);
+      user.email = CryptoService.decrypt(user.email);
 
       if (organization_id) {
         await client.query(`
