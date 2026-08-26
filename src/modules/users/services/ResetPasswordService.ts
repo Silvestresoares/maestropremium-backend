@@ -1,5 +1,6 @@
 import { pool } from '../../../config/database';
 import bcrypt from 'bcryptjs';
+import { AppError } from '../../../shared/errors/AppError';
 
 export class ResetPasswordService {
   async execute(token: string, newPassword: string): Promise<void> {
@@ -12,7 +13,7 @@ export class ResetPasswordService {
       );
 
       if (result.rows.length === 0) {
-        throw new Error('Token inválido ou expirado.');
+        throw new AppError('Token inválido ou expirado.', 400);
       }
 
       const userId = result.rows[0].id;
