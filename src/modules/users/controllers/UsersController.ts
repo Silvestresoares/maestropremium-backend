@@ -9,6 +9,7 @@ import { createUserSchema } from '../schemas/createUser.schema';
 import { ForgotPasswordService } from '../services/ForgotPasswordService';
 import { ResetPasswordService } from '../services/ResetPasswordService';
 import { UpdateUserPasswordService } from '../services/UpdateUserPasswordService';
+import { ResendInviteService } from '../services/ResendInviteService';
 
 export class UsersController {
   async changePassword(request: Request, response: Response): Promise<Response> {
@@ -67,6 +68,16 @@ export class UsersController {
     const users = await listUsersService.execute(currentUser?.organization_id);
 
     return response.json(users);
+  }
+
+  async resendInvite(request: Request, response: Response): Promise<Response> {
+    const { id } = request.params;
+    const currentUser = request.user;
+    
+    const resendInviteService = new ResendInviteService();
+    await resendInviteService.execute(id, currentUser?.organization_id);
+
+    return response.status(204).send();
   }
 
   async update(request: Request, response: Response): Promise<Response> {

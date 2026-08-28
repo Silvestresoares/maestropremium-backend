@@ -28,6 +28,9 @@ usersRoutes.post('/', isAdmin, usersController.create.bind(usersController));
 // Definição da rota de listagem GET /users - PROTEGIDA!
 usersRoutes.get('/', isAdmin, usersController.index.bind(usersController));
 
+// Rota para reenviar e-mail de convite POST /users/:id/resend-invite - PROTEGIDA!
+usersRoutes.post('/:id/resend-invite', isAdmin, usersController.resendInvite.bind(usersController));
+
 // Rota de atualização completa PUT /users/:id - PROTEGIDA!
 usersRoutes.put('/:id', isAdmin, usersController.update.bind(usersController));
 
