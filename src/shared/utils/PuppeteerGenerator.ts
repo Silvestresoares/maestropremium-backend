@@ -4,9 +4,9 @@ import chromium from '@sparticuz/chromium';
 export class PuppeteerGenerator {
   static async generatePdf(url: string): Promise<Buffer> {
     console.log(`Starting Puppeteer for URL: ${url}`);
-    
+
     let browser;
-    
+
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
       // Configuração para produção (Render, AWS, etc) usando puppeteer-core + sparticuz
       chromium.setGraphicsMode = false;
@@ -26,26 +26,26 @@ export class PuppeteerGenerator {
 
     try {
       const page = await browser.newPage();
-      
+
       // Navigate to the provided URL (which should be the print template)
       await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-      
+
       // Wait for the specific element that indicates loading is finished.
       // PrintTemplate.tsx removes the #print-loading div when finished loading.
       await page.waitForSelector('#pdf-chart-container', { timeout: 10000 });
-      
+
       if (url.includes('tab=partitura')) {
         // A partitura (AlphaTab/OSMD) requer um tempo para renderizar o Canvas/SVG.
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
-      
+
       // We inject CSS directly via Puppeteer to handle the specific layout requirements
       // similar to what we did in the iframe approach, but now in the backend.
       await page.addStyleTag({
         content: `
-          @page {
+                    @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 6mm 8mm; /* Margens otimizadas para folha A4 */
           }
           html {
             font-size: 11px !important;
@@ -62,48 +62,80 @@ export class PuppeteerGenerator {
             color-adjust: exact !important;
             -webkit-print-color-adjust: exact !important;
           }
-          .no-print {
-            display: none !important;
-          }
           
-          /* Hide unwanted UI controls */
+          /* Oculta controles de tela, botões e telas de desenho */
+          .no-print,
           .auto-scroll-controls, 
-          [data-html2canvas-ignore="true"] {
+          [data-html2canvas-ignore="true"],
+          canvas {
             display: none !important;
           }
 
-          /* Increase only chords and lyrics size */
-          .chord-line {
-            font-size: 1.4rem !important;
+          /* Remove o padding externo de 2rem que empurrava a folha */
+          .chart-viewer {
+            padding: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
           }
-          .lyric-line {
-            font-size: 1.45rem !important;
-            min-height: 1.65rem !important;
+
+          /* Cabeçalho mais compacto para não empurrar a música */
+          .chart-viewer > div:first-of-type {
+            margin-bottom: 0.5rem !important;
+            padding-bottom: 0.4rem !important;
           }
-          .song-line {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+          .chart-viewer img {
+            height: 48px !important; /* Reduz altura do logo de 90px para 48px */
           }
+          .chart-viewer h1 {
+            font-size: 1.5rem !important;
+          }
+          .chart-viewer h2 {
+            font-size: 0.95rem !important;
+          }
+
+          /* Linha de Estrutura enxuta */
+          div[style*="marginBottom: 2.5rem"],
+          div[style*="margin-bottom: 2.5rem"] {
+            margin-bottom: 0.6rem !important;
+          }
+
+          /* Distribuição real em 2 Colunas lado a lado */
           .chart-columns {
-            display: block !important;
-            column-count: 2 !important;
-            column-gap: 2rem !important;
-            column-fill: auto !important;
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 1.5rem !important;
+            align-items: flex-start !important;
             width: 100% !important;
           }
           .chart-columns > div {
-            display: contents !important;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 !important;
+            min-width: 0 !important;
           }
+
+          /* Espaçamento entre estrofes/refrões */
           div[id^="section-"] {
-            page-break-inside: auto !important;
-            break-inside: auto !important;
-          }
-          h3, h2, .print-break-avoid {
+            margin-bottom: 0.8rem !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            page-break-after: avoid !important;
-            break-after: avoid !important;
           }
+
+          /* Acordes e Letra ajustados para leitura confortável */
+          .chord-line {
+            font-size: 1.25rem !important;
+            margin-bottom: 0 !important;
+          }
+          .lyric-line {
+            font-size: 1.25rem !important;
+            min-height: 1.4rem !important;
+          }
+          .song-line {
+            margin-top: 0.2rem !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
         `
       });
 
@@ -148,6 +180,7 @@ export class PuppeteerGenerator {
         format: 'A4',
         printBackground: true,
         displayHeaderFooter: false,
+        pageRanges: '1'
       });
 
       // Puppeteer returns a Uint8Array, we convert to Buffer
