@@ -94,7 +94,7 @@ export class SongsController {
 
   async generatePdf(request: Request, response: Response): Promise<void> {
     const { id } = request.params;
-    const { visualTone, capo, tab, token } = request.query;
+    const { visualTone, capo, tab, token, style, columns } = request.query;
 
     try {
       // Import here to avoid loading puppeteer if the endpoint is not used
@@ -107,8 +107,14 @@ export class SongsController {
       if (capo) printUrl.searchParams.set('capo', String(capo));
       if (tab) printUrl.searchParams.set('tab', String(tab));
       if (token) printUrl.searchParams.set('token', String(token));
+      if (style) printUrl.searchParams.set('style', String(style));
+      if (columns) printUrl.searchParams.set('columns', String(columns));
       
-      const pdfBuffer = await PuppeteerGenerator.generatePdf(printUrl.toString());
+      const pdfBuffer = await PuppeteerGenerator.generatePdf(
+        printUrl.toString(),
+        String(style || 'modern'),
+        String(columns || '2')
+      );
       
       response.setHeader('Content-Type', 'application/pdf');
       response.setHeader('Content-Disposition', `attachment; filename="cifra-${id}.pdf"`);
