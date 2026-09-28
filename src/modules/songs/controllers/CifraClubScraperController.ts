@@ -186,18 +186,20 @@ export class CifraClubScraperController {
             },
           });
 
+          console.log(`[CifrasScraper]: Resposta do Cifras.com.br para ${songUrl} -> Status: ${res.status}`);
+
           if (res.ok) {
             const html = await res.text();
             const $ = cheerio.load(html);
             rawText = $('pre').text();
           }
-        } catch (fetchErr) {
-          console.warn('Fetch direto no Cifras.com.br falhou:', fetchErr);
+        } catch (fetchErr: any) {
+          console.warn('[CifrasScraper]: Fetch direto no Cifras.com.br falhou:', fetchErr?.message);
         }
 
-        // Se falhou no Cifras, tenta fallback automático no Cifra Club (imprimir.html)
+        // Se falhou no Cifras (ex: bloqueio Cloudflare 403 de datacenter no Render), tenta fallback automático no Cifra Club
         if (!rawText) {
-          console.log(`[CifrasScraper]: Cifras sem texto, tentando fallback no Cifra Club: ${cleanPath}`);
+          console.log(`[CifrasScraper]: Cifras sem texto (ou 403 de datacenter), acionando fallback automático no Cifra Club: ${cleanPath}`);
           try {
             const ccRes = await fetch(`https://www.cifraclub.com.br/${cleanPath}/imprimir.html`, {
               headers: {
@@ -207,6 +209,9 @@ export class CifraClubScraperController {
                 'Accept-Language': 'pt-BR,pt;q=0.9',
               },
             });
+
+            console.log(`[CifrasScraper]: Resposta do fallback Cifra Club imprimir.html -> Status: ${ccRes.status}`);
+
             if (ccRes.ok) {
               const html = await ccRes.text();
               const $ = cheerio.load(html);
@@ -214,9 +219,10 @@ export class CifraClubScraperController {
               tone = $('[data-anchor="--chord-tone"]').text().trim();
               if (!tone) tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
               tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
+              console.log(`[CifrasScraper]: Sucesso no fallback Cifra Club! (${rawText.length} caracteres, Tom: "${tone}")`);
             }
-          } catch (ccErr) {
-            console.warn('Fallback no Cifra Club falhou:', ccErr);
+          } catch (ccErr: any) {
+            console.warn('[CifrasScraper]: Fallback no Cifra Club falhou:', ccErr?.message);
           }
         }
 
@@ -261,6 +267,8 @@ export class CifraClubScraperController {
           },
         });
 
+        console.log(`[CifraClubScraper]: Resposta do Cifra Club imprimir.html -> Status: ${res.status}`);
+
         if (res.ok) {
           const html = await res.text();
           const $ = cheerio.load(html);
@@ -270,9 +278,10 @@ export class CifraClubScraperController {
             tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
           }
           tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
+          console.log(`[CifraClubScraper]: Sucesso via imprimir.html! (${rawText.length} caracteres, Tom: "${tone}")`);
         }
-      } catch (printErr) {
-        console.warn('Tentativa via imprimir.html falhou, tentando URL normal...');
+      } catch (printErr: any) {
+        console.warn('[CifraClubScraper]: Tentativa via imprimir.html falhou:', printErr?.message);
       }
 
       // TENTATIVA 2: URL Normal do Cifra Club via fetch direto
