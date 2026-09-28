@@ -13,14 +13,42 @@ export class CifraClubScraperController {
     }
 
     try {
-      // Usa a biblioteca para buscar (ela utiliza o Akamai Solr nativo do CifraClub)
-      const results = await CifraClub.search(q);
-      const validResults = (results || []).filter((item: any) => item.path && !item.path.includes('undefined'));
+      // Busca em paralelo no Cifra Club e no Cifras.com.br
+      const [cifraClubRes, cifrasComBrRes] = await Promise.allSettled([
+        // 1. Cifra Club
+        CifraClub.search(q).then((results: any) =>
+          (results || [])
+            .filter((item: any) => item.path && !item.path.includes('undefined'))
+            .map((item: any) => ({
+              path: item.path,
+              name: item.name,
+              author: item.author,
+              source: 'cifraclub'
+            }))
+        ),
+        // 2. Cifras.com.br (API pública)
+        fetch(`https://www.cifras.com.br/api/search?q=${encodeURIComponent(q)}`)
+          .then(res => res.json())
+          .then((data: any) =>
+            (data?.songs?.hits || []).map((hit: any) => ({
+              path: `${hit.COD_ARTISTA}/${hit.COD_TITULO}`,
+              name: hit.TITULO,
+              author: hit.ARTISTA,
+              source: 'cifras'
+            }))
+          )
+      ]);
 
-      return response.json(validResults);
+      const ccResults = cifraClubRes.status === 'fulfilled' ? cifraClubRes.value : [];
+      const cifrasResults = cifrasComBrRes.status === 'fulfilled' ? cifrasComBrRes.value : [];
+
+      // Une os resultados
+      const unifiedResults = [...ccResults, ...cifrasResults];
+
+      return response.json(unifiedResults);
     } catch (error: any) {
-      console.error('Erro na busca do Cifra Club:', error.message);
-      return response.status(500).json({ error: 'Erro ao buscar dados no Cifra Club.' });
+      console.error('Erro na busca unificada de cifras:', error.message);
+      return response.status(500).json({ error: 'Erro ao buscar dados de cifras.' });
     }
   }
 
@@ -89,20 +117,74 @@ export class CifraClubScraperController {
   }
 
   async scrape(request: Request, response: Response): Promise<Response> {
-    const { path } = request.query;
+    const { path, source } = request.query;
 
     if (!path || typeof path !== 'string') {
       return response.status(400).json({ error: 'Parâmetro "path" é obrigatório.' });
     }
 
     const cleanPath = path.replace(/^\/+|\/+$/g, '');
+
+    // 1. Extração do Cifras.com.br
+    if (source === 'cifras') {
+      const songUrl = `https://www.cifras.com.br/cifra/${cleanPath}`;
+
+      try {
+        let rawText = '';
+        let tone = '';
+
+        try {
+          const res = await fetch(songUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+              'Referer': 'https://www.google.com/',
+            },
+          });
+
+          if (res.ok) {
+            const html = await res.text();
+            const $ = cheerio.load(html);
+            rawText = $('pre').text();
+          }
+        } catch (fetchErr) {
+          console.warn('Fetch direto no Cifras.com.br falhou, tentando fallback com Puppeteer...');
+        }
+
+        if (!rawText) {
+          console.log(`[CifrasScraper]: Acionando Puppeteer para Cifras.com.br: ${songUrl}`);
+          const pupResult = await this.scrapeWithPuppeteer(songUrl);
+          rawText = pupResult.rawText;
+        }
+
+        if (!rawText) {
+          return response.status(404).json({ error: 'Não foi possível encontrar a cifra no Cifras.com.br.' });
+        }
+
+        // Detecta o tom inicial a partir do primeiro acorde
+        const firstChord = rawText.match(/\b([A-G][#b]?(?:m|M)?)\b/);
+        tone = firstChord ? firstChord[1] : '';
+
+        return response.json({
+          raw_text: rawText,
+          tone: tone,
+        });
+      } catch (error: any) {
+        console.error('Erro ao extrair do Cifras.com.br:', error.message);
+        return response.status(500).json({ error: 'Erro ao tentar baixar a cifra do Cifras.com.br.' });
+      }
+    }
+
+    // 2. Extração do Cifra Club (com Puppeteer fallback)
     const songUrl = `https://www.cifraclub.com.br/${cleanPath}/`;
 
     try {
       let rawText = '';
       let tone = '';
 
-      // 1. Tenta primeiro via fetch direto
+      // Tenta primeiro via fetch direto
       try {
         const res = await fetch(songUrl, {
           headers: {
@@ -127,7 +209,7 @@ export class CifraClubScraperController {
         console.warn('Fetch direto falhou, acionando fallback com Puppeteer...');
       }
 
-      // 2. Se o fetch tomou 403 (bloqueio de Cloudflare em datacenters como Render) ou não encontrou a cifra, usa Chromium real
+      // Se o fetch tomou 403 (bloqueio de Cloudflare em datacenters como Render) ou não encontrou a cifra, usa Chromium real
       if (!rawText) {
         console.log(`[CifraClubScraper]: Acionando Puppeteer Chromium para contornar Cloudflare em: ${songUrl}`);
         const pupResult = await this.scrapeWithPuppeteer(songUrl);
