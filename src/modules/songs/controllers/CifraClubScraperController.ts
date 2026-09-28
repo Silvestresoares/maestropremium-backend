@@ -26,8 +26,16 @@ export class CifraClubScraperController {
               source: 'cifraclub'
             }))
         ),
-        // 2. Cifras.com.br (API pública)
-        fetch(`https://www.cifras.com.br/api/search?q=${encodeURIComponent(q)}`)
+        // 2. Cifras.com.br (API pública com headers de navegador para não ser bloqueada no Render)
+        fetch(`https://www.cifras.com.br/api/search?q=${encodeURIComponent(q)}`, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://www.cifras.com.br/',
+          }
+        })
           .then(res => res.json())
           .then((data: any) =>
             (data?.songs?.hits || []).map((hit: any) => ({
@@ -42,8 +50,22 @@ export class CifraClubScraperController {
       const ccResults = cifraClubRes.status === 'fulfilled' ? cifraClubRes.value : [];
       const cifrasResults = cifrasComBrRes.status === 'fulfilled' ? cifrasComBrRes.value : [];
 
-      // Une os resultados
-      const unifiedResults = [...ccResults, ...cifrasResults];
+      if (cifraClubRes.status === 'rejected') {
+        console.error('Cifra Club search failed:', cifraClubRes.reason);
+      }
+      if (cifrasComBrRes.status === 'rejected') {
+        console.error('Cifras.com.br search failed:', cifrasComBrRes.reason);
+      }
+
+      console.log(`[Search]: Encontrados ${ccResults.length} do Cifra Club e ${cifrasResults.length} do Cifras.com.br`);
+
+      // Intercala os resultados para que opções de ambas as fontes apareçam logo no topo
+      const unifiedResults: any[] = [];
+      const maxLength = Math.max(ccResults.length, cifrasResults.length);
+      for (let i = 0; i < maxLength; i++) {
+        if (i < ccResults.length) unifiedResults.push(ccResults[i]);
+        if (i < cifrasResults.length) unifiedResults.push(cifrasResults[i]);
+      }
 
       return response.json(unifiedResults);
     } catch (error: any) {
