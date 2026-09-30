@@ -79,7 +79,7 @@ export class CifraClubScraperController {
     }
   }
 
-  private async scrapeWithPuppeteer(songUrl: string): Promise<{ rawText: string; tone: string }> {
+  private async scrapeWithPuppeteer(url: string): Promise<{ rawText: string; tone: string }> {
     let browser;
 
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
@@ -93,7 +93,9 @@ export class CifraClubScraperController {
           '--font-render-hinting=none',
           '--disable-blink-features=AutomationControlled',
           '--no-sandbox',
-          '--disable-setuid-sandbox'
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
         ],
       });
     } else {
@@ -104,7 +106,7 @@ export class CifraClubScraperController {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-blink-features=AutomationControlled'
+          '--disable-blink-features=AutomationControlled',
         ],
       });
     }
@@ -112,7 +114,7 @@ export class CifraClubScraperController {
     try {
       const page = await browser.newPage();
 
-      // Bloqueia imagens, fontes e mídias para carregar em milissegundos
+      // Bloqueia imagens, fontes, stylesheets e mídias para carregar em ~1s
       await page.setRequestInterception(true);
       page.on('request', (req: any) => {
         const type = req.resourceType();
@@ -128,13 +130,24 @@ export class CifraClubScraperController {
         }
       });
 
+      // Oculta navigator.webdriver para contornar desafio do Cloudflare
+      await page.evaluateOnNewDocument(() => {
+        const nav = (globalThis as any).navigator;
+        if (nav) {
+          Object.defineProperty(nav, 'webdriver', { get: () => false });
+        }
+      });
+
       await page.setUserAgent(
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
       );
 
-      await page.goto(songUrl, {
+      const targetUrl = url.includes('imprimir.html') ? url : `${url.replace(/\/+$/, '')}/imprimir.html`;
+
+      console.log(`[PuppeteerScraper]: Navegando para ${targetUrl}...`);
+      await page.goto(targetUrl, {
         waitUntil: 'domcontentloaded',
-        timeout: 5000,
+        timeout: 10000,
       });
 
       await page.waitForSelector('pre', { timeout: 4000 });
@@ -142,19 +155,48 @@ export class CifraClubScraperController {
       const html = await page.content();
       const $ = cheerio.load(html);
 
-      const rawText = $('pre').text();
+      let rawText = $('pre').text();
+      if (rawText) {
+        rawText = rawText.replace(/Ocultar tablatura/gi, '').trim();
+      }
+
       let tone = $('[data-anchor="--chord-tone"]').text().trim();
       if (!tone) {
         tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
       }
       tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
 
+      if (!tone && rawText) {
+        const firstChord = rawText.match(/\b([A-G][#b]?(?:m|M)?)\b/);
+        tone = firstChord ? firstChord[1] : '';
+      }
+
+      console.log(`[PuppeteerScraper]: Extração concluída! Tamanho: ${rawText.length}, Tom: "${tone}"`);
       return { rawText, tone };
     } finally {
       if (browser) {
         await browser.close().catch(() => {});
       }
     }
+  }
+
+  private async resolveCifraClubSlug(queryOrSlug: string): Promise<string | null> {
+    try {
+      const q = queryOrSlug.replace(/[-_]/g, ' ').replace(/\//g, ' ').trim();
+      const res = await fetch(`https://solr.sscdn.co/cc/h2/?q=${encodeURIComponent(q)}&callback=`);
+      if (!res.ok) return null;
+      const text = (await res.text()).trim();
+      const jsonStr = text.replace(/^[a-zA-Z0-9_]*\s*\(/, '').replace(/\);?$/, '');
+      const data = JSON.parse(jsonStr);
+      const docs = data?.response?.docs || [];
+      const songDoc = docs.find((d: any) => d.d && d.u);
+      if (songDoc) {
+        return `${songDoc.d}/${songDoc.u}`;
+      }
+    } catch (e) {
+      console.warn('[Scraper]: Erro ao resolver slug via Solr:', e);
+    }
+    return null;
   }
 
   async scrape(request: Request, response: Response): Promise<Response> {
@@ -165,207 +207,163 @@ export class CifraClubScraperController {
     }
 
     const cleanPath = path.replace(/^\/+|\/+$/g, '');
-
-    // 1. Extração do Cifras.com.br
-    if (source === 'cifras') {
-      const songUrl = `https://www.cifras.com.br/cifra/${cleanPath}`;
-
-      try {
-        let rawText = '';
-        let tone = '';
-
-        // Tenta buscar no Cifras.com.br
-        try {
-          const res = await fetch(songUrl, {
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-              'Accept-Language': 'pt-BR,pt;q=0.9',
-              'Referer': 'https://www.google.com/',
-            },
-          });
-
-          console.log(`[CifrasScraper]: Resposta do Cifras.com.br para ${songUrl} -> Status: ${res.status}`);
-
-          if (res.ok) {
-            const html = await res.text();
-            const $ = cheerio.load(html);
-            rawText = $('pre').text();
-          }
-        } catch (fetchErr: any) {
-          console.warn('[CifrasScraper]: Fetch direto no Cifras.com.br falhou:', fetchErr?.message);
-        }
-
-        // Se falhou no Cifras (ex: bloqueio Cloudflare 403 de datacenter no Render), tenta fallback automático no Cifra Club
-        if (!rawText) {
-          console.log(`[CifrasScraper]: Cifras sem texto (ou 403 de datacenter), acionando fallback automático no Cifra Club: ${cleanPath}`);
-          try {
-            const ccRes = await fetch(`https://www.cifraclub.com.br/${cleanPath}/imprimir.html`, {
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'pt-BR,pt;q=0.9',
-              },
-            });
-
-            console.log(`[CifrasScraper]: Resposta do fallback Cifra Club imprimir.html -> Status: ${ccRes.status}`);
-
-            if (ccRes.ok) {
-              const html = await ccRes.text();
-              const $ = cheerio.load(html);
-              rawText = $('pre').text();
-              tone = $('[data-anchor="--chord-tone"]').text().trim();
-              if (!tone) tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
-              tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
-              console.log(`[CifrasScraper]: Sucesso no fallback Cifra Club! (${rawText.length} caracteres, Tom: "${tone}")`);
-            }
-          } catch (ccErr: any) {
-            console.warn('[CifrasScraper]: Fallback no Cifra Club falhou:', ccErr?.message);
-          }
-        }
-
-        if (!rawText) {
-          return response.status(404).json({ error: 'Não foi possível encontrar a cifra no Cifras.com.br nem no Cifra Club.' });
-        }
-
-        rawText = rawText.replace(/Ocultar tablatura/gi, '').trim();
-
-        if (!tone) {
-          const firstChord = rawText.match(/\b([A-G][#b]?(?:m|M)?)\b/);
-          tone = firstChord ? firstChord[1] : '';
-        }
-
-        return response.json({
-          raw_text: rawText,
-          tone: tone,
-        });
-      } catch (error: any) {
-        console.error('Erro ao extrair do Cifras.com.br:', error.message);
-        return response.status(500).json({ error: 'Erro ao tentar baixar a cifra do Cifras.com.br.' });
-      }
-    }
-
-    // 2. Extração do Cifra Club
-    const printUrl = `https://www.cifraclub.com.br/${cleanPath}/imprimir.html`;
+    let printUrl = `https://www.cifraclub.com.br/${cleanPath}/imprimir.html`;
     const standardUrl = `https://www.cifraclub.com.br/${cleanPath}/`;
+    const cifrasUrl = `https://www.cifras.com.br/cifra/${cleanPath}`;
 
-    try {
-      let rawText = '';
-      let tone = '';
+    let rawText = '';
+    let tone = '';
 
-      // TENTATIVA 1: Versão de Impressão (imprimir.html)
-      // É servida diretamente pelo CifraClub sem desafio Cloudflare Turnstile e responde em < 100ms
+    // ==========================================
+    // ESTRATÉGIA 1: FETCH RÁPIDO (DIRETO)
+    // ==========================================
+    if (source === 'cifras') {
+      try {
+        const res = await fetch(cifrasUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9',
+            'Referer': 'https://www.google.com/',
+          },
+        });
+        console.log(`[Scraper]: Resposta Cifras.com.br para ${cleanPath} -> Status: ${res.status}`);
+        if (res.ok) {
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          rawText = $('pre').text();
+        }
+      } catch (err: any) {
+        console.warn('[Scraper]: Fetch no Cifras.com.br falhou:', err?.message);
+      }
+    } else {
+      // Cifra Club: tenta imprimir.html direto
       try {
         const res = await fetch(printUrl, {
           headers: {
             'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'pt-BR,pt;q=0.9',
           },
         });
-
-        console.log(`[CifraClubScraper]: Resposta do Cifra Club imprimir.html -> Status: ${res.status}`);
-
+        console.log(`[Scraper]: Resposta Cifra Club imprimir.html para ${cleanPath} -> Status: ${res.status}`);
         if (res.ok) {
           const html = await res.text();
           const $ = cheerio.load(html);
           rawText = $('pre').text();
           tone = $('[data-anchor="--chord-tone"]').text().trim();
-          if (!tone) {
-            tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
-          }
+          if (!tone) tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
           tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
-          console.log(`[CifraClubScraper]: Sucesso via imprimir.html! (${rawText.length} caracteres, Tom: "${tone}")`);
         }
-      } catch (printErr: any) {
-        console.warn('[CifraClubScraper]: Tentativa via imprimir.html falhou:', printErr?.message);
+      } catch (err: any) {
+        console.warn('[Scraper]: Fetch no Cifra Club imprimir.html falhou:', err?.message);
       }
+    }
 
-      // TENTATIVA 2: URL Normal do Cifra Club via fetch direto
-      if (!rawText) {
+    // =========================================================================
+    // ESTRATÉGIA 2: RESOLUÇÃO INTELIGENTE DE SLUG VIA SOLR & FALLBACK CRUZADO
+    // =========================================================================
+    if (!rawText) {
+      console.log(`[Scraper]: Tentativa inicial falhou para ${cleanPath}, tentando resolver slug via Solr do Cifra Club...`);
+      const resolvedSlug = await this.resolveCifraClubSlug(cleanPath);
+      if (resolvedSlug) {
+        printUrl = `https://www.cifraclub.com.br/${resolvedSlug}/imprimir.html`;
+        console.log(`[Scraper]: Slug resolvido: "${resolvedSlug}". Baixando ${printUrl}...`);
         try {
-          const res = await fetch(standardUrl, {
+          const res = await fetch(printUrl, {
             headers: {
               'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-              'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+              'Accept-Language': 'pt-BR,pt;q=0.9',
             },
           });
-
           if (res.ok) {
             const html = await res.text();
             const $ = cheerio.load(html);
             rawText = $('pre').text();
             tone = $('[data-anchor="--chord-tone"]').text().trim();
-            if (!tone) {
-              tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
-            }
+            if (!tone) tone = $('#cifra_tom a').text() || $('#cifra_tom').text();
             tone = tone.replace(/Tom:\s*/i, '').split(/\s*\(/)[0].trim();
+            console.log(`[Scraper]: Sucesso via Cifra Club Solr slug resolvido!`);
           }
-        } catch (fetchErr) {
-          console.warn('Fetch direto na URL padrão falhou...');
+        } catch (err: any) {
+          console.warn('[Scraper]: Fetch no Cifra Club com slug resolvido falhou:', err?.message);
         }
       }
-
-      // TENTATIVA 3: Fallback Automático Cruzado para Cifras.com.br
-      // Se o CifraClub bloqueou por Cloudflare no Render, busca a mesma música no Cifras.com.br
-      if (!rawText) {
-        console.log(`[CifraClubScraper]: Cifra Club inacessível, acionando fallback automático no Cifras.com.br para: ${cleanPath}`);
-        try {
-          const cifrasRes = await fetch(`https://www.cifras.com.br/cifra/${cleanPath}`, {
-            headers: {
-              'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-              'Accept-Language': 'pt-BR,pt;q=0.9',
-              'Referer': 'https://www.google.com/',
-            },
-          });
-
-          if (cifrasRes.ok) {
-            const html = await cifrasRes.text();
-            const $ = cheerio.load(html);
-            rawText = $('pre').text();
-            if (rawText) {
-              rawText = rawText.replace(/Ocultar tablatura/gi, '').trim();
-              if (!tone) {
-                const firstChord = rawText.match(/\b([A-G][#b]?(?:m|M)?)\b/);
-                tone = firstChord ? firstChord[1] : '';
-              }
-            }
-          }
-        } catch (cifrasErr) {
-          console.warn('Fallback cruzado para Cifras.com.br falhou:', cifrasErr);
-        }
-      }
-
-      // TENTATIVA 4: Puppeteer com timeout rígido de 5s (apenas se tudo falhar)
-      if (!rawText) {
-        try {
-          console.log(`[CifraClubScraper]: Acionando Puppeteer Chromium como último recurso: ${printUrl}`);
-          const pupResult = await this.scrapeWithPuppeteer(printUrl);
-          rawText = pupResult.rawText;
-          if (!tone) tone = pupResult.tone;
-        } catch (pupErr: any) {
-          console.warn('Puppeteer também falhou:', pupErr?.message);
-        }
-      }
-
-      if (!rawText) {
-        return response.status(404).json({ error: 'Não foi possível encontrar a cifra no Cifra Club nem no Cifras.com.br.' });
-      }
-
-      return response.json({
-        raw_text: rawText,
-        tone: tone,
-      });
-    } catch (error: any) {
-      console.error('Erro ao extrair cifra:', error.message);
-      return response.status(500).json({ error: 'Erro ao tentar baixar a cifra.' });
     }
+
+    // Se ainda não achou e source era Cifra Club, tenta fallback no Cifras.com.br
+    if (!rawText && source !== 'cifras') {
+      try {
+        const res = await fetch(cifrasUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9',
+            'Referer': 'https://www.google.com/',
+          },
+        });
+        console.log(`[Scraper]: Fallback fetch Cifras.com.br para ${cleanPath} -> Status: ${res.status}`);
+        if (res.ok) {
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          rawText = $('pre').text();
+        }
+      } catch (err: any) {
+        console.warn('[Scraper]: Fallback fetch no Cifras falhou:', err?.message);
+      }
+    }
+
+    // =========================================================================
+    // ESTRATÉGIA 3: PUPPETEER STEALTH (Contorna Cloudflare do Render em ~2s)
+    // =========================================================================
+    if (!rawText) {
+      console.log(`[Scraper]: Fetch bloqueado por Cloudflare no Render, acionando Puppeteer Stealth para: ${printUrl}`);
+      try {
+        const pupResult = await this.scrapeWithPuppeteer(printUrl);
+        rawText = pupResult.rawText;
+        if (!tone) tone = pupResult.tone;
+      } catch (pupErr: any) {
+        console.warn('[Scraper]: Puppeteer Stealth falhou no printUrl:', pupErr?.message);
+      }
+    }
+
+    // Se o path tiver "esse" ou "este", tenta a variação no Puppeteer (ex: Legião Urbana)
+    if (!rawText && (cleanPath.includes('esse') || cleanPath.includes('este'))) {
+      const altSlug = cleanPath.includes('esse')
+        ? cleanPath.replace(/esse/g, 'este')
+        : cleanPath.replace(/este/g, 'esse');
+      const altPrintUrl = `https://www.cifraclub.com.br/${altSlug}/imprimir.html`;
+      console.log(`[Scraper]: Tentando variação de slug com Puppeteer: ${altPrintUrl}`);
+      try {
+        const pupResult = await this.scrapeWithPuppeteer(altPrintUrl);
+        rawText = pupResult.rawText;
+        if (!tone) tone = pupResult.tone;
+      } catch (altErr: any) {
+        console.warn('[Scraper]: Puppeteer na variação de slug falhou:', altErr?.message);
+      }
+    }
+
+    if (!rawText) {
+      return response.status(404).json({ error: 'Não foi possível encontrar a cifra no Cifras.com.br nem no Cifra Club.' });
+    }
+
+    rawText = rawText.replace(/Ocultar tablatura/gi, '').trim();
+
+    // Detecção aprimorada de tom quando a página não fornece a tag
+    if (!tone) {
+      const firstChordMatch = rawText.match(/\b([A-G][#b]?(?:m|M)?)(?:[0-9]|maj|dim|aug|sus|add|M|º|°)*(?:\/[A-G][#b]?)?/);
+      tone = firstChordMatch ? firstChordMatch[1] : '';
+    }
+
+    return response.json({
+      raw_text: rawText,
+      tone: tone,
+    });
   }
 }
+
