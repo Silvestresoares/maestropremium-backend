@@ -29,8 +29,8 @@ WORKDIR /app
 # Copia manifestos de dependências
 COPY package*.json ./
 
-# Instala todas as dependências (incluindo devDependencies para compilação do TypeScript)
-RUN npm install
+# Instala todas as dependências sem disparar postinstall antes da cópia do código
+RUN npm install --ignore-scripts
 
 # Copia todo o código fonte
 COPY . .
@@ -39,7 +39,7 @@ COPY . .
 RUN npm run build
 
 # Remove dependências de desenvolvimento para manter a imagem enxuta
-RUN npm prune --production
+RUN npm prune --production --ignore-scripts
 
 # Cria a pasta de uploads persistente
 RUN mkdir -p /app/uploads
