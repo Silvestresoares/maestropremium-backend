@@ -7,6 +7,7 @@ export const authLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login/recuperação vindas deste IP, tente novamente mais tarde.' },
   standardHeaders: true, // Retorna os headers de limite de taxa nas respostas `RateLimit-*`
   legacyHeaders: false, // Desabilita os cabeçalhos `X-RateLimit-*`
+  validate: { xForwardedForHeader: false },
 });
 
 // Rate limiter específico para a rota de geração de PDF via Puppeteer (prevenir DDoS ou esgotamento de CPU/RAM)
@@ -16,4 +17,5 @@ export const pdfLimiter = rateLimit({
   message: { error: 'Limite de geração de PDFs atingido, tente novamente em um minuto.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
 });

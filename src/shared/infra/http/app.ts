@@ -25,6 +25,9 @@ import path from 'path';
 
 const app = express();
 
+// Confia no proxy reverso (Nginx) para identificar o IP real do cliente via X-Forwarded-For
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
