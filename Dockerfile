@@ -1,24 +1,54 @@
-FROM node:18-alpine
+# ==========================================
+# Maestro Cifras - Backend Dockerfile
+# Otimizado para Hostinger VPS (Ubuntu / Docker)
+# Suporte a Node.js 20, Puppeteer & Chromium
+# ==========================================
 
-# Cria e define o diretório de trabalho dentro do contêiner
+FROM node:20-bookworm-slim
+
+# Instala Chromium do sistema e dependências para Puppeteer rodar com estabilidade
+RUN apt-get update && apt-get install -y \
+    chromium \
+    fonts-ipafont-gothic \
+    fonts-wqy-zenhei \
+    fonts-thai-tlwg \
+    fonts-kacst \
+    fonts-freefont-ttf \
+    libxss1 \
+    dumb-init \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configura o Puppeteer para usar o Chromium nativo do sistema
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production
+
 WORKDIR /app
 
-# Copia os arquivos de dependência
+# Copia manifestos de dependências
 COPY package*.json ./
 
-# Instala as dependências (incluindo devDependencies para o build)
+# Instala todas as dependências (incluindo devDependencies para compilação do TypeScript)
 RUN npm install
 
-# Copia o restante do código
+# Copia todo o código fonte
 COPY . .
 
-# Faz o build do TypeScript para JavaScript
+# Compila o TypeScript para a pasta dist/
 RUN npm run build
 
-# Expõe a porta que a aplicação vai rodar (assumindo 3333 ou 8080)
-# Ajuste conforme a porta que o seu server.ts utiliza (normalmente puxa de process.env.PORT)
-EXPOSE 3333
-EXPOSE 8080
+# Remove dependências de desenvolvimento para manter a imagem enxuta
+RUN npm prune --production
 
-# Comando para iniciar a aplicação
-CMD ["npm", "start"]
+# Cria a pasta de uploads persistente
+RUN mkdir -p /app/uploads
+
+# Expõe a porta padrão do Maestro
+EXPOSE 3333
+
+# Gerenciador de processos para tratar sinais POSIX (SIGTERM/SIGINT) no Docker
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Inicialização da API compilada
+CMD ["node", "dist/server.js"]

@@ -82,7 +82,19 @@ export class CifraClubScraperController {
   private async scrapeWithPuppeteer(url: string): Promise<{ rawText: string; tone: string }> {
     let browser;
 
-    if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      browser = await puppeteer.launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--disable-blink-features=AutomationControlled',
+        ],
+      });
+    } else if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
       chromium.setGraphicsMode = false;
       const puppeteerCore = require('puppeteer-core');
       browser = await puppeteerCore.launch({

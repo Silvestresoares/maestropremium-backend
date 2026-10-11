@@ -10,7 +10,20 @@ export class PuppeteerGenerator {
 
     let browser;
 
-    if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      // Configuração para Docker / Linux VPS com Chromium de sistema
+      browser = await puppeteer.launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--font-render-hinting=none',
+        ],
+      });
+    } else if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
       // Configuração para produção (Render, AWS, etc) usando puppeteer-core + sparticuz
       chromium.setGraphicsMode = false;
       const puppeteerCore = require('puppeteer-core');

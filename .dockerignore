@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+uploads
+*.log
+npm-debug.log*
+.env
+.env.example
+scratch
+*.rar
+*.zip

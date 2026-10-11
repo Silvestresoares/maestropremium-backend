@@ -1,18 +1,40 @@
+version: '3.8'
+
 services:
-  maestro-db:
-    image: postgres:16-alpine
-    container_name: maestro-postgres-db
-    restart: always
-    environment:
-      POSTGRES_USER: silvestresoares83
-      POSTGRES_PASSWORD: Subestre1
-      POSTGRES_DB: maestro_db
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maestro-backend
+    restart: unless-stopped
     ports:
-      - "5434:5432"
+      # Exposição na porta 3333 da VPS (não colide com portas 3005 e 3006 de outros apps)
+      # Se usar Nginx Reverso na VPS (ex: api.seudominio.com), altere para "127.0.0.1:3333:3333"
+      - "3333:3333"
+    env_file:
+      - .env
+    environment:
+      - PORT=3333
+      - NODE_ENV=production
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      # Montagem segura do arquivo .env
+      - ./.env:/app/.env:ro
+      # Volume persistente para partituras, fotos e arquivos de áudio
+      - maestro_uploads:/app/uploads
+    networks:
+      - maestro-network
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+          cpus: '1.0'
 
 volumes:
-  postgres_data:
-    driver: local
+  maestro_uploads:
+    name: maestro_uploads
+
+networks:
+  maestro-network:
+    name: maestro-network
+    driver: bridge
