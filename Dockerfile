@@ -21,16 +21,15 @@ RUN apt-get update && apt-get install -y \
 
 # Configura o Puppeteer para usar o Chromium nativo do sistema
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    NODE_ENV=production
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
 # Copia manifestos de dependências
 COPY package*.json ./
 
-# Instala todas as dependências sem disparar postinstall antes da cópia do código
-RUN npm install --ignore-scripts
+# Instala todas as dependências (incluindo devDependencies para compilação do TypeScript)
+RUN npm install --include=dev --ignore-scripts
 
 # Copia todo o código fonte
 COPY . .
@@ -40,6 +39,9 @@ RUN npm run build
 
 # Remove dependências de desenvolvimento para manter a imagem enxuta
 RUN npm prune --production --ignore-scripts
+
+# Define NODE_ENV para runtime
+ENV NODE_ENV=production
 
 # Cria a pasta de uploads persistente
 RUN mkdir -p /app/uploads
