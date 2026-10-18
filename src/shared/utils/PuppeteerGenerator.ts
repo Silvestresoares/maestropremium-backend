@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import chromium from '@sparticuz/chromium';
 
 export class PuppeteerGenerator {
-  static async generatePdf(url: string, styleParam?: string, columnsParam?: string | number): Promise<Buffer> {
+  static async generatePdf(url: string, styleParam?: string, columnsParam?: string | number, songData?: any): Promise<Buffer> {
     console.log(`Starting Puppeteer for URL: ${url}`);
 
     const isClassic = styleParam === 'classic' || url.includes('style=classic');
@@ -43,6 +43,33 @@ export class PuppeteerGenerator {
 
     try {
       const page = await browser.newPage();
+
+      if (songData) {
+        // 1. Injeta os dados da música diretamente no contexto da página antes de qualquer script rodar
+        await page.evaluateOnNewDocument((data: any) => {
+          (globalThis as any).__INITIAL_SONG_DATA__ = data;
+        }, songData);
+
+        // 2. Intercepta chamadas de rede da página para a API de músicas
+        // Evita erro de rede (Network Error) causado por loopback do Docker na VPS ao chamar a própria URL pública
+        await page.setRequestInterception(true);
+        page.on('request', (req: any) => {
+          const reqUrl = req.url();
+          if (songData.id && reqUrl.includes(`/songs/${songData.id}`)) {
+            req.respond({
+              status: 200,
+              contentType: 'application/json',
+              headers: {
+                'access-control-allow-origin': '*',
+                'access-control-allow-headers': '*',
+              },
+              body: JSON.stringify(songData),
+            });
+          } else {
+            req.continue();
+          }
+        });
+      }
 
       // Navigate to the provided URL (which should be the print template)
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });

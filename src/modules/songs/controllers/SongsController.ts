@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { pool } from '../../../config/database';
 import { CreateSongService } from '../services/CreateSongService';
 import { ListSongsService } from '../services/ListSongsService';
 import { DeleteSongService } from '../services/DeleteSongService';
@@ -97,6 +98,20 @@ export class SongsController {
     const { visualTone, capo, tab, token, style, columns, frontendUrl } = request.query;
 
     try {
+      const currentUser = request.user!;
+      const showSongService = new ShowSongService();
+      let songData: any = null;
+
+      try {
+        songData = await showSongService.execute(id, currentUser?.organization_id);
+      } catch (err) {
+        if (currentUser?.is_super_admin) {
+          const query = 'SELECT id, title, artist, tone, bpm, file_url, youtube_url, spotify_url, chord_pro, time_signature, audio_files, sheet_music_files, sections, arrangement_json, created_at FROM songs WHERE id = $1;';
+          const res = await pool.query(query, [id]);
+          songData = res.rows[0] || null;
+        }
+      }
+
       // Import here to avoid loading puppeteer if the endpoint is not used
       const { PuppeteerGenerator } = require('../../../shared/utils/PuppeteerGenerator');
       
@@ -121,14 +136,16 @@ export class SongsController {
       if (visualTone) printUrl.searchParams.set('visualTone', String(visualTone));
       if (capo) printUrl.searchParams.set('capo', String(capo));
       if (tab) printUrl.searchParams.set('tab', String(tab));
-      if (token) printUrl.searchParams.set('token', String(token));
+      const authToken = (token as string) || request.headers.authorization?.replace(/^Bearer\s+/i, '');
+      if (authToken) printUrl.searchParams.set('token', authToken);
       if (style) printUrl.searchParams.set('style', String(style));
       if (columns) printUrl.searchParams.set('columns', String(columns));
       
       const pdfBuffer = await PuppeteerGenerator.generatePdf(
         printUrl.toString(),
         String(style || 'modern'),
-        String(columns || '2')
+        String(columns || '2'),
+        songData
       );
       
       response.setHeader('Content-Type', 'application/pdf');
