@@ -94,13 +94,28 @@ export class SongsController {
 
   async generatePdf(request: Request, response: Response): Promise<void> {
     const { id } = request.params;
-    const { visualTone, capo, tab, token, style, columns } = request.query;
+    const { visualTone, capo, tab, token, style, columns, frontendUrl } = request.query;
 
     try {
       // Import here to avoid loading puppeteer if the endpoint is not used
       const { PuppeteerGenerator } = require('../../../shared/utils/PuppeteerGenerator');
       
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      // Determine base URL dynamically based on request query, origin, referer, or env fallback
+      let baseUrl = (frontendUrl as string) || '';
+      if (!baseUrl && request.headers.origin) {
+        baseUrl = request.headers.origin;
+      } else if (!baseUrl && request.headers.referer) {
+        try {
+          baseUrl = new URL(request.headers.referer).origin;
+        } catch {
+          // ignore invalid referer
+        }
+      }
+
+      if (!baseUrl) {
+        baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      }
+
       const printUrl = new URL(`${baseUrl}/print-song/${id}`);
       
       if (visualTone) printUrl.searchParams.set('visualTone', String(visualTone));
@@ -119,9 +134,9 @@ export class SongsController {
       response.setHeader('Content-Type', 'application/pdf');
       response.setHeader('Content-Disposition', `attachment; filename="cifra-${id}.pdf"`);
       response.send(pdfBuffer);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error generating PDF via Puppeteer:', err);
-      response.status(500).json({ error: 'Internal server error while generating PDF' });
+      response.status(500).json({ error: err?.message || 'Internal server error while generating PDF' });
     }
   }
 }

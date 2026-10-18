@@ -6,6 +6,7 @@ export class PuppeteerGenerator {
     console.log(`Starting Puppeteer for URL: ${url}`);
 
     const isClassic = styleParam === 'classic' || url.includes('style=classic');
+    const isCifraPro = styleParam === 'cifra-pro' || url.includes('style=cifra-pro') || url.includes('layout=cifra-pro');
     const isSingleColumn = String(columnsParam) === '1' || url.includes('columns=1');
 
     let browser;
@@ -44,11 +45,18 @@ export class PuppeteerGenerator {
       const page = await browser.newPage();
 
       // Navigate to the provided URL (which should be the print template)
-      await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-      // Wait for the specific element that indicates loading is finished.
-      // PrintTemplate.tsx removes the #print-loading div when finished loading.
-      await page.waitForSelector('#pdf-chart-container', { timeout: 10000 });
+      // Wait for either the rendered chart or an error state
+      const targetSelector = await Promise.race([
+        page.waitForSelector('#pdf-chart-container', { timeout: 15000 }).then(() => '#pdf-chart-container'),
+        page.waitForSelector('#print-error', { timeout: 15000 }).then(() => '#print-error')
+      ]);
+
+      if (targetSelector === '#print-error') {
+        const errorText = await page.$eval('#print-error', (el: any) => el.textContent?.trim());
+        throw new Error(errorText || 'Falha ao renderizar cifra no template de impressão.');
+      }
 
       if (url.includes('tab=partitura')) {
         // A partitura (AlphaTab/OSMD) requer um tempo para renderizar o Canvas/SVG.
@@ -396,41 +404,48 @@ export class PuppeteerGenerator {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
+            .cifra-pro-card {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              box-shadow: none !important;
+            }
           `
         });
 
-        await page.evaluate(`
-          const sections = document.querySelectorAll('div[id^="section-"]');
-          sections.forEach(section => {
-            if (section.style.justifyContent === 'flex-end') {
-              section.style.justifyContent = 'flex-start';
-              section.style.borderLeft = section.style.borderRight;
-              section.style.borderRight = 'none';
-              section.style.paddingLeft = section.style.paddingRight;
-              section.style.paddingRight = '0';
-              section.style.marginLeft = section.style.marginRight;
-              section.style.marginRight = '0';
-            }
-            
-            const contentBox = Array.from(section.children).find(child => child.style.flex === '1 1 0%' || child.style.flex === '1');
-            if (contentBox) {
-              const rightBorder = contentBox.style.borderRight;
-              if (rightBorder && rightBorder !== 'none' && rightBorder !== '') {
-                contentBox.style.borderLeft = rightBorder;
-                contentBox.style.borderRight = 'none';
-                contentBox.style.paddingLeft = contentBox.style.paddingRight;
-                contentBox.style.paddingRight = '0';
+        if (!isCifraPro) {
+          await page.evaluate(`
+            const sections = document.querySelectorAll('div[id^="section-"]');
+            sections.forEach(section => {
+              if (section.style.justifyContent === 'flex-end') {
+                section.style.justifyContent = 'flex-start';
+                section.style.borderLeft = section.style.borderRight;
+                section.style.borderRight = 'none';
+                section.style.paddingLeft = section.style.paddingRight;
+                section.style.paddingRight = '0';
+                section.style.marginLeft = section.style.marginRight;
+                section.style.marginRight = '0';
               }
               
-              if (contentBox.nextElementSibling) {
-                const rightTitle = contentBox.nextElementSibling;
-                rightTitle.style.marginLeft = '0';
-                rightTitle.style.marginRight = '0.2rem';
-                section.insertBefore(rightTitle, contentBox);
+              const contentBox = Array.from(section.children).find(child => child.style.flex === '1 1 0%' || child.style.flex === '1');
+              if (contentBox) {
+                const rightBorder = contentBox.style.borderRight;
+                if (rightBorder && rightBorder !== 'none' && rightBorder !== '') {
+                  contentBox.style.borderLeft = rightBorder;
+                  contentBox.style.borderRight = 'none';
+                  contentBox.style.paddingLeft = contentBox.style.paddingRight;
+                  contentBox.style.paddingRight = '0';
+                }
+                
+                if (contentBox.nextElementSibling) {
+                  const rightTitle = contentBox.nextElementSibling;
+                  rightTitle.style.marginLeft = '0';
+                  rightTitle.style.marginRight = '0.2rem';
+                  section.insertBefore(rightTitle, contentBox);
+                }
               }
-            }
-          });
-        `);
+            });
+          `);
+        }
       }
 
       // Give a tiny bit of time for DOM changes to settle and fonts to render perfectly
@@ -441,10 +456,6 @@ export class PuppeteerGenerator {
         printBackground: true,
         displayHeaderFooter: false,
       };
-
-      if (!isSingleColumn) {
-        pdfOptions.pageRanges = '1';
-      }
 
       const pdfBuffer = await page.pdf(pdfOptions);
 
